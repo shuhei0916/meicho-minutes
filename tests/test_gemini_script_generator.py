@@ -38,20 +38,21 @@ def test_gemini_script_generator_initialization():
             GeminiScriptGenerator()
     
     # API keyがある場合の正常初期化テスト
-    with patch('google.generativeai.configure') as mock_configure:
-        with patch('google.generativeai.GenerativeModel') as mock_model:
-            generator = GeminiScriptGenerator(api_key="test_api_key")
-            
-            mock_configure.assert_called_once_with(api_key="test_api_key")
-            mock_model.assert_called_once_with('gemini-1.5-flash')
+    with patch('google.genai.Client') as mock_client_class:
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        
+        generator = GeminiScriptGenerator(api_key="test_api_key")
+        
+        mock_client_class.assert_called_once_with(api_key="test_api_key")
+        assert generator.client == mock_client
 
 
-@patch('google.generativeai.configure')
-@patch('google.generativeai.GenerativeModel')
-def test_script_generation_from_book_info(mock_model_class, mock_configure):
+@patch('google.genai.Client')
+def test_script_generation_from_book_info(mock_client_class):
     """書籍情報から台本生成をテスト"""
     # モックのセットアップ
-    mock_model = MagicMock()
+    mock_client = MagicMock()
     mock_response = MagicMock()
     mock_response.text = """タイトル: 団塊世代の真実が衝撃すぎる...！
 概要: 50年前に予言された日本の未来がまさに現実となっていた驚愕の書籍
@@ -60,8 +61,8 @@ def test_script_generation_from_book_info(mock_model_class, mock_configure):
 コメント3: レビューでも絶賛の嵐
 締め: この予言書、今読まないと後悔します！"""
     
-    mock_model.generate_content.return_value = mock_response
-    mock_model_class.return_value = mock_model
+    mock_client.models.generate_content.return_value = mock_response
+    mock_client_class.return_value = mock_client
     
     # テストデータの準備
     reviews = [
@@ -90,20 +91,24 @@ def test_script_generation_from_book_info(mock_model_class, mock_configure):
     assert script.conclusion == "この予言書、今読まないと後悔します！"
     
     # Gemini APIが呼ばれたことを確認
-    mock_model.generate_content.assert_called_once()
+    mock_client.models.generate_content.assert_called_once()
+    
+    # API呼び出しの引数を確認
+    call_args = mock_client.models.generate_content.call_args
+    assert call_args[1]['model'] == "gemini-2.5-flash"
+    assert 'contents' in call_args[1]
 
 
-@patch('google.generativeai.configure')
-@patch('google.generativeai.GenerativeModel')
-def test_script_generation_with_empty_response(mock_model_class, mock_configure):
+@patch('google.genai.Client')
+def test_script_generation_with_empty_response(mock_client_class):
     """空の応答に対するエラーハンドリングをテスト"""
     # モックのセットアップ（空の応答）
-    mock_model = MagicMock()
+    mock_client = MagicMock()
     mock_response = MagicMock()
     mock_response.text = ""
     
-    mock_model.generate_content.return_value = mock_response
-    mock_model_class.return_value = mock_model
+    mock_client.models.generate_content.return_value = mock_response
+    mock_client_class.return_value = mock_client
     
     # テストデータの準備
     book_info = BookInfo(title="テスト本")
@@ -114,17 +119,16 @@ def test_script_generation_with_empty_response(mock_model_class, mock_configure)
         generator.generate_script_from_book_info(book_info)
 
 
-@patch('google.generativeai.configure')
-@patch('google.generativeai.GenerativeModel')
-def test_script_generation_with_incomplete_response(mock_model_class, mock_configure):
+@patch('google.genai.Client')
+def test_script_generation_with_incomplete_response(mock_client_class):
     """不完全な応答に対するデフォルト値設定をテスト"""
     # モックのセットアップ（不完全な応答）
-    mock_model = MagicMock()
+    mock_client = MagicMock()
     mock_response = MagicMock()
     mock_response.text = "タイトル: テストタイトル\n概要: テスト概要"
     
-    mock_model.generate_content.return_value = mock_response
-    mock_model_class.return_value = mock_model
+    mock_client.models.generate_content.return_value = mock_response
+    mock_client_class.return_value = mock_client
     
     # テストデータの準備
     book_info = BookInfo(
@@ -145,23 +149,24 @@ def test_script_generation_with_incomplete_response(mock_model_class, mock_confi
 
 def test_prompt_creation():
     """プロンプト作成の内容をテスト"""
-    with patch('google.generativeai.configure'):
-        with patch('google.generativeai.GenerativeModel'):
-            generator = GeminiScriptGenerator(api_key="test_key")
-            
-            book_info = BookInfo(
-                title="テスト本",
-                author="テスト著者",
-                description="テスト説明"
-            )
-            
-            prompt = generator._create_prompt(book_info, "テストレビュー")
-            
-            # プロンプトに必要な情報が含まれていることを確認
-            assert "テスト本" in prompt
-            assert "テスト著者" in prompt
-            assert "テスト説明" in prompt
-            assert "テストレビュー" in prompt
-            assert "60秒程度" in prompt
-            assert "【タイトル】" in prompt
-            assert "【概要】" in prompt
+    with patch('google.genai.Client') as mock_client_class:
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        generator = GeminiScriptGenerator(api_key="test_key")
+        
+        book_info = BookInfo(
+            title="テスト本",
+            author="テスト著者",
+            description="テスト説明"
+        )
+        
+        prompt = generator._create_prompt(book_info, "テストレビュー")
+        
+        # プロンプトに必要な情報が含まれていることを確認
+        assert "テスト本" in prompt
+        assert "テスト著者" in prompt
+        assert "テスト説明" in prompt
+        assert "テストレビュー" in prompt
+        assert "60秒程度" in prompt
+        assert "【タイトル】" in prompt
+        assert "【概要】" in prompt
