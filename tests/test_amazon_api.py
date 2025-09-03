@@ -37,3 +37,17 @@ def test_scrape_book_basic_info_from_html():
     assert book_info["price"] == "￥534"
     assert book_info["image_url"] == "https://m.media-amazon.com/images/I/51wZYgJf7oL._SY385_.jpg"
     assert book_info["description"] == "「団塊の世代」が日本の経済社会になにをもたらすのかを予言した名著。今後の大量定年、老齢化問題への対策を新たに加えた新装版"
+    assert book_info["rating"] == "5つ星のうち3.8"
+    assert book_info["reviews"] is not None
+    assert len(book_info["reviews"]) >= 2
+    
+    # 最初のレビューをチェック
+    first_review = book_info["reviews"][0]
+    assert first_review["title"] == "読んでて切ない団塊世代サラリーマン譚"
+    assert "ちょっと前に著者である堺屋氏の訃報を知ったのを機に" in first_review["text"]
+    assert "団塊世代サラリーマンの短編が4本収録されてます" in first_review["text"]
+    
+    # 2番目のレビューをチェック  
+    second_review = book_info["reviews"][1]
+    assert second_review["title"] == "なんだ、分かってたんじゃねえか"
+    assert "本書の優れたところは、「団塊」という人口のアンバランス" in second_review["text"]

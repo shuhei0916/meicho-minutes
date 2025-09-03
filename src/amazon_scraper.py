@@ -38,10 +38,47 @@ class AmazonScraper:
         description_span = description_div.find('span') if description_div else None
         description = description_span.text.strip() if description_span else None
         
+        # レビュー評価を取得
+        rating_element = soup.find('span', {'title': lambda title: title and '5つ星のうち' in title})
+        rating = rating_element.get('title') if rating_element else None
+        
+        # カスタマーレビューを取得
+        reviews = []
+        review_elements = soup.find_all('li', {'data-hook': 'review'})
+        
+        for review_element in review_elements:
+            # レビュータイトル
+            title_element = review_element.find('a', {'data-hook': 'review-title'})
+            review_title = None
+            if title_element:
+                # レビュータイトル内のspan（星評価以外）を探す
+                title_spans = title_element.find_all('span')
+                for span in title_spans:
+                    if span.text.strip() and '5つ星のうち' not in span.text:
+                        review_title = span.text.strip()
+                        break
+            
+            # レビュー本文
+            body_element = review_element.find('span', {'data-hook': 'review-body'})
+            review_text = None
+            if body_element:
+                text_span = body_element.find('span')
+                if text_span:
+                    # <br>タグを改行に変換
+                    review_text = text_span.get_text(separator='\n').strip()
+            
+            if review_title and review_text:
+                reviews.append({
+                    "title": review_title,
+                    "text": review_text
+                })
+        
         return {
             "title": title,
             "author": author,
             "price": price,
             "image_url": image_url,
-            "description": description
+            "description": description,
+            "rating": rating,
+            "reviews": reviews
         }
