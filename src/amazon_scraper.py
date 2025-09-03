@@ -29,8 +29,13 @@ class AmazonScraper:
         price_element = soup.find('span', {'aria-label': '￥534'})
         price = price_element.text.strip() if price_element else None
         
+        # 画像URLを取得
+        image_element = soup.find('img', id='landingImage')
+        image_url = image_element.get('src') if image_element else None
+        
         return {
             "title": title,
             "author": author,
-            "price": price
+            "price": price,
+            "image_url": image_url
         }

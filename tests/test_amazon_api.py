@@ -35,3 +35,4 @@ def test_scrape_book_basic_info_from_html():
     assert book_info["title"] == "団塊の世代 〈新版〉 (文春文庫 さ 1-20)"
     assert book_info["author"] == "堺屋 太一"
     assert book_info["price"] == "￥534"
+    assert book_info["image_url"] == "https://m.media-amazon.com/images/I/51wZYgJf7oL._SY385_.jpg"
