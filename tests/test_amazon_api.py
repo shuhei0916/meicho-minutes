@@ -36,3 +36,4 @@ def test_scrape_book_basic_info_from_html():
     assert book_info["author"] == "堺屋 太一"
     assert book_info["price"] == "￥534"
     assert book_info["image_url"] == "https://m.media-amazon.com/images/I/51wZYgJf7oL._SY385_.jpg"
+    assert book_info["description"] == "「団塊の世代」が日本の経済社会になにをもたらすのかを予言した名著。今後の大量定年、老齢化問題への対策を新たに加えた新装版"

@@ -33,9 +33,15 @@ class AmazonScraper:
         image_element = soup.find('img', id='landingImage')
         image_url = image_element.get('src') if image_element else None
         
+        # 説明文を取得
+        description_div = soup.find('div', id='bookDescription_feature_div')
+        description_span = description_div.find('span') if description_div else None
+        description = description_span.text.strip() if description_span else None
+        
         return {
             "title": title,
             "author": author,
             "price": price,
-            "image_url": image_url
+            "image_url": image_url,
+            "description": description
         }
