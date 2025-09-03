@@ -84,4 +84,5 @@ logs/
 *.jpg
 *.png
 *.jpeg
-*.gifsrc/hoge.py
+*.gif
+src/hoge.py
