@@ -49,7 +49,7 @@ class VoiceVoxTTS:
             ServerConnectionError: サーバー接続エラー
         """
         try:
-            response = requests.get(
+            response = requests.post(
                 f"{self.base_url}/audio_query",
                 params={"text": text, "speaker": speaker_id}
             )
@@ -113,3 +113,84 @@ class VoiceVoxTTS:
             f.write(audio_data)
         
         return output_path
+
+
+if __name__ == "__main__":
+    import sys
+    import argparse
+    try:
+        from src.amazon_scraper import AmazonScraper
+        from src.gemini_script_generator import GeminiScriptGenerator
+    except ImportError:
+        from amazon_scraper import AmazonScraper
+        from gemini_script_generator import GeminiScriptGenerator
+    
+    parser = argparse.ArgumentParser(description='VOICEVOX TTSを使用して音声ファイルを生成')
+    parser.add_argument('--script', type=str, help='VideoScriptのJSONファイルパス')
+    parser.add_argument('--text', type=str, help='直接テキストを指定')
+    parser.add_argument('--url', type=str, help='Amazon商品ページのURL')
+    parser.add_argument('--file', type=str, help='ローカルHTMLファイルパス')
+    parser.add_argument('--output', type=str, required=True, help='出力する音声ファイルパス')
+    parser.add_argument('--speaker', type=int, default=1, help='話者ID（デフォルト: 1）')
+    parser.add_argument('--server', type=str, default='127.0.0.1:50021', help='VOICEVOXサーバーURL')
+    
+    args = parser.parse_args()
+    
+    try:
+        tts = VoiceVoxTTS(server_url=args.server, speaker_id=args.speaker)
+        
+        if args.script:
+            # JSONファイルからVideoScriptを読み込み
+            import json
+            with open(args.script, 'r', encoding='utf-8') as f:
+                script_data = json.load(f)
+            
+            script = VideoScript(
+                title=script_data['title'],
+                overview=script_data['overview'],
+                comments=script_data['comments'],
+                conclusion=script_data['conclusion']
+            )
+            print(f"スクリプトファイルから音声生成中: {args.script}")
+            result_path = tts.generate_audio_from_script(script, args.output, args.speaker)
+            
+        elif args.text:
+            # 直接テキストから音声生成
+            print(f"テキストから音声生成中: {args.text}")
+            query = tts._create_audio_query(args.text, args.speaker)
+            audio_data = tts._synthesize_audio(query, args.speaker)
+            
+            with open(args.output, 'wb') as f:
+                f.write(audio_data)
+            result_path = args.output
+            
+        elif args.url or args.file:
+            # Amazon商品から台本生成して音声化
+            scraper = AmazonScraper()
+            
+            if args.url:
+                print(f"URLから書籍情報を取得中: {args.url}")
+                book_info = scraper.scrape_book_info_from_url(args.url)
+            else:
+                print(f"ファイルから書籍情報を取得中: {args.file}")
+                book_info = scraper.scrape_book_info_from_html_file(args.file)
+            
+            # Geminiで台本生成
+            script_generator = GeminiScriptGenerator()
+            script = script_generator.generate_script_from_book_info(book_info)
+            
+            print("Gemini APIで台本生成完了")
+            print("VOICEVOX TTSで音声生成中...")
+            
+            result_path = tts.generate_audio_from_script(script, args.output, args.speaker)
+        else:
+            print("エラー: --script, --text, --url, --file のいずれかを指定してください")
+            sys.exit(1)
+        
+        print(f"\n✅ 音声ファイル生成完了!")
+        print(f"   出力先: {result_path}")
+        print(f"   話者ID: {args.speaker}")
+        
+    except Exception as e:
+        print(f"エラー: 音声生成中にエラーが発生しました: {e}")
+        sys.exit(1)
