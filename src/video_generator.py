@@ -13,6 +13,26 @@ from src.subtitle_image_generator import SubtitleImageGenerator, SubtitleStyle
 class VideoGenerator:
     """動画生成機能を提供するクラス"""
     
+    # デフォルト設定（ハードコーディング）
+    DEFAULT_SETTINGS = {
+        'subtitle': {
+            'font_size': 45,                    # 字幕フォントサイズ（ピクセル）
+            'font_color': (255, 255, 255),      # 字幕色（RGB: 白）
+            'background_color': (0, 0, 0, 140), # 字幕背景色（RGBA: 半透明黒）
+            'outline_color': (0, 0, 0),         # 文字縁取り色（RGB: 黒）
+            'outline_width': 3,                 # 縁取りの太さ（ピクセル）
+            'margin': 25,                       # 画面端からの余白（ピクセル）
+            'line_spacing': 8,                  # 行間のスペース（ピクセル）
+            'max_width_ratio': 0.85             # 画面幅に対する字幕最大幅の比率
+        },
+        'video': {
+            'background_color': (25, 25, 112),  # ネイビーブルー
+            'fps': 24,
+            'codec': 'libx264',
+            'audio_codec': 'aac'
+        }
+    }
+    
     def __init__(self, width: int = 1080, height: int = 1920):
         """
         VideoGeneratorを初期化
@@ -24,6 +44,19 @@ class VideoGenerator:
         self.width = width
         self.height = height
         self.subtitle_image_generator = SubtitleImageGenerator(width, height)
+        
+        # デフォルト字幕スタイルを作成
+        subtitle_config = self.DEFAULT_SETTINGS['subtitle']
+        self.default_subtitle_style = SubtitleStyle(
+            font_size=subtitle_config['font_size'],
+            font_color=subtitle_config['font_color'],
+            background_color=subtitle_config['background_color'],
+            outline_color=subtitle_config['outline_color'],
+            outline_width=subtitle_config['outline_width'],
+            margin=subtitle_config['margin'],
+            line_spacing=subtitle_config['line_spacing'],
+            max_width_ratio=subtitle_config['max_width_ratio']
+        )
     
     def process_book_cover_image(self, book_info: BookInfo, output_path: str) -> str:
         """
@@ -315,25 +348,15 @@ if __name__ == "__main__":
     import json
     import tempfile
     
-    parser = argparse.ArgumentParser(description='動画生成機能のテスト・調整ツール')
+    parser = argparse.ArgumentParser(description='独立した動画生成ツール')
     parser.add_argument('--demo', action='store_true', help='デモ動画を生成')
-    parser.add_argument('--book-url', type=str, help='Amazon書籍URL')
-    parser.add_argument('--book-file', type=str, help='ローカルHTMLファイル')
-    parser.add_argument('--script-json', type=str, help='VideoScriptのJSONファイル')
+    parser.add_argument('--script-json', type=str, help='VideoScriptのJSONファイルから動画生成')
     parser.add_argument('--output', type=str, required=True, help='出力動画ファイルパス')
-    parser.add_argument('--font-size', type=int, default=40, help='字幕のフォントサイズ')
-    parser.add_argument('--bg-color', type=str, default='25,25,112', help='背景色（R,G,B）')
-    parser.add_argument('--width', type=int, default=1080, help='動画の幅')
-    parser.add_argument('--height', type=int, default=1920, help='動画の高さ')
-    parser.add_argument('--test-components', action='store_true', help='各コンポーネントを個別テスト')
     
     args = parser.parse_args()
     
     try:
-        # 背景色を解析
-        bg_color = tuple(map(int, args.bg_color.split(',')))
-        
-        generator = VideoGenerator(width=args.width, height=args.height)
+        generator = VideoGenerator()  # デフォルト設定を使用
         
         if args.demo:
             # デモ動画生成
@@ -362,37 +385,10 @@ if __name__ == "__main__":
             )
             
             print("サンプル動画を生成中...")
-            # SubtitleStyleオブジェクトを作成
-            subtitle_style = SubtitleStyle(font_size=args.font_size)
-            result_path = generator.create_youtube_shorts_video(sample_book, sample_script, args.output, "/tmp", subtitle_style)
+            # デフォルト設定を使用
+            result_path = generator.create_youtube_shorts_video(sample_book, sample_script, args.output, "/tmp", generator.default_subtitle_style)
             print(f"✅ デモ動画生成完了: {result_path}")
             
-        elif args.book_url or args.book_file:
-            # 実際の書籍から動画生成
-            from src.amazon_scraper import AmazonScraper
-            from src.gemini_script_generator import GeminiScriptGenerator
-            
-            scraper = AmazonScraper()
-            
-            if args.book_url:
-                print(f"Amazon URLから書籍情報を取得中: {args.book_url}")
-                book_info = scraper.scrape_book_info_from_url(args.book_url)
-            else:
-                print(f"ローカルファイルから書籍情報を取得中: {args.book_file}")
-                book_info = scraper.scrape_book_info_from_html_file(args.book_file)
-            
-            print(f"取得した書籍: {book_info.title}")
-            
-            # Geminiで台本生成
-            script_generator = GeminiScriptGenerator()
-            script = script_generator.generate_script_from_book_info(book_info)
-            
-            print("Gemini APIで台本生成完了")
-            print("動画生成中...")
-            
-            subtitle_style = SubtitleStyle(font_size=args.font_size)
-            result_path = generator.create_youtube_shorts_video(book_info, script, args.output, "/tmp", subtitle_style)
-            print(f"✅ 動画生成完了: {result_path}")
             
         elif args.script_json:
             # JSONファイルから台本を読み込んで動画生成
@@ -417,49 +413,21 @@ if __name__ == "__main__":
             )
             
             print(f"スクリプトファイルから動画生成中: {args.script_json}")
-            subtitle_style = SubtitleStyle(font_size=args.font_size)
-            result_path = generator.create_youtube_shorts_video(sample_book, script, args.output, "/tmp", subtitle_style)
+            result_path = generator.create_youtube_shorts_video(sample_book, script, args.output, "/tmp", generator.default_subtitle_style)
             print(f"✅ 動画生成完了: {result_path}")
             
-        elif args.test_components:
-            # 各コンポーネントの個別テスト
-            print("=== コンポーネント個別テスト ===")
-            
-            # 1. 背景画像テスト
-            bg_path = args.output.replace('.mp4', '_background.jpg')
-            generator.create_background_image(bg_path, bg_color)
-            print(f"✅ 背景画像生成完了: {bg_path}")
-            
-            # 2. サンプル書影画像テスト（プレースホルダー）
-            sample_book = BookInfo(
-                title="テスト書籍",
-                author="テスト著者", 
-                image_url="https://via.placeholder.com/300x400/FF6B6B/FFFFFF?text=Test+Book",
-                reviews=[]
-            )
-            cover_path = args.output.replace('.mp4', '_cover.jpg')
-            generator.process_book_cover_image(sample_book, cover_path)
-            print(f"✅ 書影画像処理完了: {cover_path}")
-            
-            print(f"背景画像: {bg_path}")
-            print(f"書影画像: {cover_path}")
-            print("次のステップ: 音声ファイルを生成して動画合成をテストしてください")
             
         else:
             print("使用方法:")
             print("  --demo --output video.mp4                    : デモ動画生成")
-            print("  --book-url URL --output video.mp4            : Amazon URLから動画生成")
-            print("  --book-file file.html --output video.mp4     : ローカルファイルから動画生成")
             print("  --script-json script.json --output video.mp4 : JSONスクリプトから動画生成")
-            print("  --test-components --output video.mp4         : コンポーネント個別テスト")
-            print("\nオプション:")
-            print("  --font-size 40        : 字幕フォントサイズ")
-            print("  --bg-color 25,25,112  : 背景色（R,G,B）")
-            print("  --width 1080          : 動画幅")
-            print("  --height 1920         : 動画高さ")
+            print("\n設定:")
+            print("  字幕・動画設定はコード内にハードコーディングされています")
+            print("  設定変更は src/video_generator.py の DEFAULT_SETTINGS を編集してください")
             print("\n例:")
             print("  python src/video_generator.py --demo --output demo_video.mp4")
-            print("  python src/video_generator.py --test-components --output test --bg-color 255,0,0")
+            print("  python src/video_generator.py --script-json script.json --output video.mp4")
+            print("  python src/video_generator.py --test-components --output test")
             sys.exit(1)
     
     except Exception as e:
