@@ -12,3 +12,5 @@ beautifulsoup4==4.12.2
 lxml==4.9.3
 playwright==1.40.0
 fake-useragent==1.4.0
+PyYAML==6.0.1
+Pillow==9.5.0

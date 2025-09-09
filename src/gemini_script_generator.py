@@ -1,4 +1,4 @@
-from google import genai
+import google.generativeai as genai
 import os
 import json
 from typing import Optional
@@ -61,7 +61,8 @@ class GeminiScriptGenerator:
             raise GeminiScriptGeneratorError("GEMINI_API_KEYが設定されていません")
         
         # Gemini APIクライアントを設定
-        self.client = genai.Client(api_key=self.api_key)
+        genai.configure(api_key=self.api_key)
+        self.client = genai.GenerativeModel("gemini-2.5-flash")
     
     def generate_script_from_book_info(self, book_info: BookInfo) -> VideoScript:
         """
@@ -85,10 +86,7 @@ class GeminiScriptGenerator:
             prompt = self._create_prompt(book_info, reviews_text)
             
             # Gemini APIで台本生成
-            response = self.client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt
-            )
+            response = self.client.generate_content(prompt)
             
             if not response.text:
                 raise GeminiScriptGeneratorError("Gemini APIからの応答が空です")
