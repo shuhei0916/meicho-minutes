@@ -25,7 +25,7 @@ def test_scrape_book_basic_info_from_html():
     """ローカルHTMLファイルから書籍基本情報をスクレイピングできることをテスト"""
     # 準備
     scraper = AmazonScraper()
-    html_file_path = os.path.join(os.path.dirname(__file__), "..", "amazon_page_sample.html")
+    html_file_path = os.path.join(os.path.dirname(__file__), "..", "data", "amazon_page_sample.html")
     
     # 実行
     book_info = scraper.scrape_book_info_from_html_file(html_file_path)

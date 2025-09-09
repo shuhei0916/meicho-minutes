@@ -21,7 +21,7 @@ flowchart TD
     B --> C[GPTで台本生成]
     C --> D[AI音声合成]
     C --> E[字幕テキスト生成]
-    D --> F[動画生成 (FFmpeg/MoviePy)]
+    D --> F[動画生成]
     E --> F
     B --> F
     F --> G[YouTube API アップロード]
@@ -30,15 +30,15 @@ flowchart TD
 
 言語: Python 3.11+
 
-データ取得: Amazon Product Advertising API（またはPlaywright/Scrapy）
+データ取得: Amazon Product Advertising API（またはスクレイピング）
 
-AI処理(要約・台本生成) : OpenAI GPT-4o-mini or Gemini
+AI処理(要約・台本生成) : Gemini API
 
 動画編集: FFmpeg, MoviePy
 
-音声合成: OpenAI TTS / ElevenLabs API
+音声合成: VOICEVOX
 
-画像: Amazon公式書影画像, Stable Diffusion (補助ビジュアル)
+画像: Amazon公式書影画像
 
 自動化: cron / GitHub Actions
 

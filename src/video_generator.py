@@ -5,7 +5,7 @@ from io import BytesIO
 from typing import List, Dict
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip, ImageClip
 from src.amazon_scraper import BookInfo
-# from src.gemini_script_generator import VideoScript  # 依存関係問題を回避するためコメントアウト
+from src.gemini_script_generator import VideoScript
 # from src.subtitle_generator import SubtitleGenerator  # 依存関係問題を回避するためコメントアウト
 from src.subtitle_image_generator import SubtitleImageGenerator, SubtitleStyle
 
@@ -362,7 +362,9 @@ if __name__ == "__main__":
             )
             
             print("サンプル動画を生成中...")
-            result_path = generator.create_youtube_shorts_video(sample_book, sample_script, args.output, "/tmp", args.font_size)
+            # SubtitleStyleオブジェクトを作成
+            subtitle_style = SubtitleStyle(font_size=args.font_size)
+            result_path = generator.create_youtube_shorts_video(sample_book, sample_script, args.output, "/tmp", subtitle_style)
             print(f"✅ デモ動画生成完了: {result_path}")
             
         elif args.book_url or args.book_file:
@@ -388,7 +390,8 @@ if __name__ == "__main__":
             print("Gemini APIで台本生成完了")
             print("動画生成中...")
             
-            result_path = generator.create_youtube_shorts_video(book_info, script, args.output, "/tmp", args.font_size)
+            subtitle_style = SubtitleStyle(font_size=args.font_size)
+            result_path = generator.create_youtube_shorts_video(book_info, script, args.output, "/tmp", subtitle_style)
             print(f"✅ 動画生成完了: {result_path}")
             
         elif args.script_json:
@@ -414,7 +417,8 @@ if __name__ == "__main__":
             )
             
             print(f"スクリプトファイルから動画生成中: {args.script_json}")
-            result_path = generator.create_youtube_shorts_video(sample_book, script, args.output, "/tmp", args.font_size)
+            subtitle_style = SubtitleStyle(font_size=args.font_size)
+            result_path = generator.create_youtube_shorts_video(sample_book, script, args.output, "/tmp", subtitle_style)
             print(f"✅ 動画生成完了: {result_path}")
             
         elif args.test_components:

@@ -37,12 +37,17 @@ class SubtitleImageGenerator:
         self.video_width = video_width
         self.video_height = video_height
         
-        # デフォルトフォントを設定
+        # デフォルトフォントを設定（日本語対応フォントを優先）
         self._default_font_paths = [
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",  # 日本語対応 Noto Sans
+            "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc",  # 日本語対応 Noto Serif
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",  # 日本語対応 Noto Sans Regular
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",  # Ubuntu/Debian
             "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",  # Arch Linux
             "/System/Library/Fonts/Arial.ttf",  # macOS
+            "/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc",  # macOS 日本語
             "C:/Windows/Fonts/arial.ttf",  # Windows
+            "C:/Windows/Fonts/NotoSansCJK-Bold.ttc",  # Windows 日本語
             "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",  # CentOS/RHEL
         ]
     
