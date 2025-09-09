@@ -18,7 +18,7 @@ def create_simple_video():
     
     # 1. 背景画像を生成
     generator = VideoGenerator()
-    bg_path = "simple_background.jpg"
+    bg_path = "data/simple_background.jpg"
     generator.create_background_image(bg_path, (50, 50, 150))  # 青い背景
     print(f"✅ 背景画像生成完了: {bg_path}")
     

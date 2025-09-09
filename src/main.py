@@ -16,7 +16,8 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 
 # プロジェクトパスを追加
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(project_root)
 
 from src.amazon_scraper import AmazonScraper, BookInfo
 from src.video_generator import VideoGenerator
@@ -30,7 +31,7 @@ def setup_logging(config: Dict[str, Any]) -> logging.Logger:
     
     # ログディレクトリを作成
     if log_config.get('file_enabled', True):
-        log_file = Path(log_config.get('file_path', './logs/meicho_minutes.log'))
+        log_file = Path(project_root) / log_config.get('file_path', 'logs/meicho_minutes.log')
         log_file.parent.mkdir(parents=True, exist_ok=True)
     
     # ログ設定
@@ -51,11 +52,13 @@ def setup_logging(config: Dict[str, Any]) -> logging.Logger:
 
 def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
     """設定ファイルを読み込み"""
+    # プロジェクトルートからの絶対パスに変換
+    config_file = Path(project_root) / config_path
     try:
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_file, 'r', encoding='utf-8') as f:
             return yaml.safe_load(f)
     except FileNotFoundError:
-        print(f"⚠️ 設定ファイルが見つかりません: {config_path}")
+        print(f"⚠️ 設定ファイルが見つかりません: {config_file}")
         print("デフォルト設定を使用します")
         return {}
     except yaml.YAMLError as e:
@@ -79,7 +82,8 @@ class MainPipeline:
         self._init_components()
         
         # 出力ディレクトリを作成
-        self.output_dir = Path(config.get('files', {}).get('output_dir', './output'))
+        output_dir_path = config.get('files', {}).get('output_dir', 'output')
+        self.output_dir = Path(project_root) / output_dir_path
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
         # 一時ディレクトリ設定
@@ -189,8 +193,10 @@ class MainPipeline:
         """Phase 1: Amazon書籍情報を取得"""
         try:
             if html_file:
-                self.logger.info(f"ローカルHTMLファイルからスクレイピング: {html_file}")
-                book_info = self.scraper.scrape_book_info_from_html_file(html_file)
+                # プロジェクトルートからの絶対パスに変換
+                html_file_path = Path(project_root) / html_file
+                self.logger.info(f"ローカルHTMLファイルからスクレイピング: {html_file_path}")
+                book_info = self.scraper.scrape_book_info_from_html_file(str(html_file_path))
             elif url:
                 self.logger.info(f"Amazon URLからスクレイピング: {url}")
                 book_info = self.scraper.scrape_book_info_from_url(url)
@@ -368,7 +374,7 @@ def main():
     
     # 設定（必要に応じて変更）
     amazon_url = "https://www.amazon.co.jp/dp/4167193205/?coliid=INDCGOENPV1NP&colid=YAEUCTRPQIXU&psc=0&ref_=list_c_wl_lv_ov_lig_dp_it_im"  # 実際のURL
-    html_file = "amazon_page_sample.html"  # サンプルHTMLファイル
+    html_file = "data/amazon_page_sample.html"  # サンプルHTMLファイル
     output_filename = "meicho_video_new.mp4"
     
     # 設定読み込み

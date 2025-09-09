@@ -137,11 +137,13 @@ class VideoGenerator:
             final_video = final_video.set_duration(audio_clip.duration)
             
             # 動画を出力
+            temp_audiofile = os.path.join(temp_dir, f"temp_audio_{os.getpid()}.m4a")
             final_video.write_videofile(
                 output_path,
                 fps=24,
                 codec='libx264',
                 audio_codec='aac',
+                temp_audiofile=temp_audiofile,
                 verbose=False,
                 logger=None
             )
@@ -192,12 +194,14 @@ class VideoGenerator:
         # 音声付きの動画を作成
         final_video = video_clip.set_audio(audio_clip)
         
-        # 動画を出力
+        # 動画を出力  
+        temp_audiofile = os.path.join("/tmp", f"temp_audio_simple_{os.getpid()}.m4a")
         final_video.write_videofile(
             output_path,
             fps=24,
             codec='libx264',
             audio_codec='aac',
+            temp_audiofile=temp_audiofile,
             verbose=False,
             logger=None
         )
