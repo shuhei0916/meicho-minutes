@@ -99,25 +99,11 @@ class MainPipeline:
                 max_retries=amazon_config.get('max_retries', 3)
             )
             
-            # Video Generator初期化
-            video_config = self.config.get('video', {})
-            self.video_generator = VideoGenerator(
-                width=video_config.get('width', 1080),
-                height=video_config.get('height', 1920)
-            )
+            # Video Generator初期化（デフォルト設定使用）
+            self.video_generator = VideoGenerator()
             
-            # Subtitle Style初期化
-            subtitle_config = self.config.get('subtitle', {})
-            self.subtitle_style = SubtitleStyle(
-                font_size=subtitle_config.get('font_size', 40),
-                font_color=tuple(subtitle_config.get('font_color', [255, 255, 255])),
-                background_color=tuple(subtitle_config.get('background_color', [0, 0, 0, 128])),
-                outline_color=tuple(subtitle_config.get('outline_color', [0, 0, 0])),
-                outline_width=subtitle_config.get('outline_width', 2),
-                margin=subtitle_config.get('margin', 20),
-                line_spacing=subtitle_config.get('line_spacing', 5),
-                max_width_ratio=subtitle_config.get('max_width_ratio', 0.8)
-            )
+            # Subtitle Styleはvideo_generatorのデフォルト設定を使用
+            self.subtitle_style = self.video_generator.default_subtitle_style
             
             self.logger.info("全コンポーネントの初期化完了")
             
@@ -275,9 +261,8 @@ class MainPipeline:
             temp_bg = os.path.join(self.temp_dir, f"bg_{os.getpid()}.jpg")
             temp_audio = os.path.join(self.temp_dir, f"audio_{os.getpid()}.wav")
             
-            # 背景画像作成
-            video_config = self.config.get('video', {})
-            bg_color = tuple(video_config.get('background_color', [25, 25, 112]))
+            # 背景画像作成（デフォルト設定から取得）
+            bg_color = self.video_generator.DEFAULT_SETTINGS['video']['background_color']
             self.video_generator.create_background_image(temp_bg, bg_color)
             
             # ダミー音声作成（5秒）
