@@ -1,14 +1,9 @@
 import google.generativeai as genai
 import os
 import json
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, asdict
 from decouple import config
-
-try:
-    from src.amazon_scraper import BookInfo
-except ImportError:
-    from amazon_scraper import BookInfo
 
 
 @dataclass
@@ -64,12 +59,20 @@ class GeminiScriptGenerator:
         genai.configure(api_key=self.api_key)
         self.client = genai.GenerativeModel("gemini-2.5-flash")
     
-    def generate_script_from_book_info(self, book_info: BookInfo) -> VideoScript:
+    def generate_script(self, book_data: Dict[str, Any]) -> VideoScript:
         """
         書籍情報から動画台本を生成
         
         Args:
-            book_info: 書籍情報
+            book_data: 書籍情報の辞書
+            {
+                "title": str,
+                "author": str,
+                "price": str,
+                "rating": str,
+                "description": str,
+                "reviews": [{"title": str, "text": str}, ...]
+            }
             
         Returns:
             VideoScript: 生成された動画台本
@@ -77,13 +80,13 @@ class GeminiScriptGenerator:
         try:
             # レビューテキストを文字列に変換
             reviews_text = ""
-            if book_info.reviews:
+            if book_data.get('reviews'):
                 reviews_text = "\n".join([
-                    f"・{review.title}: {review.text[:200]}..." 
-                    for review in book_info.reviews[:3]  # 最初の3つのレビューのみ使用
+                    f"・{review.get('title', '')}: {review.get('text', '')[:200]}..." 
+                    for review in book_data['reviews'][:3]  # 最初の3つのレビューのみ使用
                 ])
             
-            prompt = self._create_prompt(book_info, reviews_text)
+            prompt = self._create_prompt(book_data, reviews_text)
             
             # Gemini APIで台本生成
             response = self.client.generate_content(prompt)
@@ -92,23 +95,23 @@ class GeminiScriptGenerator:
                 raise GeminiScriptGeneratorError("Gemini APIからの応答が空です")
             
             # レスポンスをパースしてVideoScriptオブジェクトに変換
-            return self._parse_response_to_script(response.text, book_info)
+            return self._parse_response_to_script(response.text, book_data)
             
         except Exception as e:
             raise GeminiScriptGeneratorError(f"台本生成中にエラーが発生しました: {e}")
     
-    def _create_prompt(self, book_info: BookInfo, reviews_text: str) -> str:
+    def _create_prompt(self, book_data: Dict[str, Any], reviews_text: str) -> str:
         """台本生成用のプロンプトを作成"""
         return f"""
 あなたはYouTubeショート動画の台本作成の専門家です。
 以下の書籍情報を基に、60秒程度のショート動画用台本を作成してください。
 
 # 書籍情報
-- タイトル: {book_info.title}
-- 著者: {book_info.author}
-- 価格: {book_info.price}
-- 評価: {book_info.rating}
-- 説明: {book_info.description}
+- タイトル: {book_data.get('title', '')}
+- 著者: {book_data.get('author', '')}
+- 価格: {book_data.get('price', '')}
+- 評価: {book_data.get('rating', '')}
+- 説明: {book_data.get('description', '')}
 
 # カスタマーレビュー
 {reviews_text}
@@ -137,7 +140,7 @@ class GeminiScriptGenerator:
 - 書籍の魅力を最大限に引き出す
 """
     
-    def _parse_response_to_script(self, response_text: str, book_info: BookInfo) -> VideoScript:
+    def _parse_response_to_script(self, response_text: str, book_data: Dict[str, Any]) -> VideoScript:
         """Geminiの応答をVideoScriptオブジェクトに変換"""
         lines = response_text.strip().split('\n')
         
@@ -168,9 +171,9 @@ class GeminiScriptGenerator:
         
         # 必須フィールドのチェックとデフォルト値設定
         if not script_data['title']:
-            script_data['title'] = f"{book_info.title}が面白すぎる件について"
+            script_data['title'] = f"{book_data.get('title', '未知の書籍')}が面白すぎる件について"
         if not script_data['overview']:
-            script_data['overview'] = book_info.description or "この本、めちゃくちゃ面白いんです！"
+            script_data['overview'] = book_data.get('description', '') or "この本、めちゃくちゃ面白いんです！"
         if not script_data['comments']:
             script_data['comments'] = ["読者からの評価も高い！", "この内容は必見です"]
         if not script_data['conclusion']:
@@ -185,73 +188,30 @@ class GeminiScriptGenerator:
 
 
 if __name__ == "__main__":
-    import sys
-    import argparse
+    # 純粋ライブラリとしてのデモンストレーション
+    print("このファイルは純粋なライブラリです。")
+    print("CLI機能は examples/gemini_script_sample.py を使用してください。")
+    
+    # 簡単なデモ
+    demo_book_data = {
+        "title": "デモ書籍",
+        "author": "デモ著者",
+        "price": "￥1000",
+        "rating": "5つ星のうち4.0",
+        "description": "これはデモ用の書籍説明です。",
+        "reviews": [
+            {"title": "面白い", "text": "とても面白かったです"},
+            {"title": "おすすめ", "text": "みんなにおすすめしたい本です"}
+        ]
+    }
+    
     try:
-        from src.amazon_scraper import AmazonScraper
-    except ImportError:
-        from amazon_scraper import AmazonScraper
-    
-    parser = argparse.ArgumentParser(description='書籍情報から動画台本を生成')
-    parser.add_argument('--url', type=str, help='Amazon商品ページのURL')
-    parser.add_argument('--file', type=str, help='ローカルHTMLファイルパス')
-    parser.add_argument('--book-json', type=str, help='書籍情報JSONファイルパス')
-    parser.add_argument('--output', type=str, help='台本出力ファイルパス')
-    parser.add_argument('--format', choices=['json', 'text'], default='text', 
-                        help='出力形式 (json/text)')
-    
-    args = parser.parse_args()
-    
-    try:
-        # 書籍情報の取得
-        if args.book_json:
-            # JSONファイルから読み込み
-            with open(args.book_json, 'r', encoding='utf-8') as f:
-                book_data = json.load(f)
-            # TODO: JSONからBookInfoオブジェクトを作成する処理を追加
-            print("JSON読み込み機能は今後実装予定です", file=sys.stderr)
-            sys.exit(1)
-        else:
-            # スクレイピングで取得
-            scraper = AmazonScraper()
-            if args.url:
-                print(f"URLから書籍情報を取得中: {args.url}", file=sys.stderr)
-                book_info = scraper.scrape_book_info_from_url(args.url)
-            elif args.file:
-                print(f"ファイルから書籍情報を取得中: {args.file}", file=sys.stderr)
-                book_info = scraper.scrape_book_info_from_html_file(args.file)
-            else:
-                # デフォルトでサンプルファイルを使用
-                sample_file = os.path.join(os.path.dirname(__file__), "..", "amazon_page_sample.html")
-                if os.path.exists(sample_file):
-                    print(f"サンプルファイルから書籍情報を取得中: {sample_file}", file=sys.stderr)
-                    book_info = scraper.scrape_book_info_from_html_file(sample_file)
-                else:
-                    print("エラー: --url, --file, または --book-json を指定してください", file=sys.stderr)
-                    sys.exit(1)
-        
-        # 台本生成
-        print("Gemini APIで台本生成中...", file=sys.stderr)
         generator = GeminiScriptGenerator()
-        script = generator.generate_script_from_book_info(book_info)
-        
-        # 出力
-        if args.format == 'json':
-            output_content = script.to_json()
-        else:
-            output_content = script.to_text()
-        
-        if args.output:
-            with open(args.output, 'w', encoding='utf-8') as f:
-                f.write(output_content)
-            print(f"台本をファイルに保存しました: {args.output}", file=sys.stderr)
-        else:
-            print(output_content)
-        
-        print(f"\n✅ 台本生成完了!", file=sys.stderr)
-        print(f"   タイトル: {script.title}", file=sys.stderr)
-        print(f"   コメント数: {len(script.comments)}", file=sys.stderr)
-        
+        script = generator.generate_script(demo_book_data)
+        print("\n=== 生成された台本 ===\n")
+        print(script.to_text())
+        print("\n=== JSON形式 ===\n")
+        print(script.to_json())
     except Exception as e:
-        print(f"エラー: {e}", file=sys.stderr)
-        sys.exit(1)
+        print(f"エラー: {e}")
+        print("注意: GEMINI_API_KEY環境変数が設定されているか確認してください。")

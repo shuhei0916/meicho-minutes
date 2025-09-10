@@ -206,7 +206,20 @@ class MainPipeline:
             
             self.logger.info("Gemini APIで台本生成開始")
             script_generator = GeminiScriptGenerator()
-            script = script_generator.generate_script_from_book_info(book_info)
+            # BookInfoを辞書に変換（新API対応）
+            book_data = {
+                "title": book_info.title or "",
+                "author": book_info.author or "",
+                "price": book_info.price or "",
+                "rating": book_info.rating or "",
+                "description": book_info.description or "",
+                "reviews": [
+                    {"title": review.title or "", "text": review.text or ""}
+                    for review in book_info.reviews
+                ] if book_info.reviews else []
+            }
+            
+            script = script_generator.generate_script(book_data)
             
             self.logger.info(f"台本生成成功: タイトル={script.title}")
             return script
