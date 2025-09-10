@@ -58,6 +58,18 @@ class AmazonScraper:
         self.request_delay = request_delay
         self.max_retries = max_retries
         self.session = requests.Session()
+        
+        # レビュー取得に成功するUser-Agentのリスト（優先度順）
+        self.user_agents = [
+            # macOS Chrome（調査で8件レビュー取得成功）
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            # Windows Firefox（調査で8件レビュー取得成功）
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
+            # Windows Chrome（最新版）
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            # macOS Safari
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'
+        ]
     
     def scrape_book_info_from_html_file(self, html_file_path) -> BookInfo:
         """ローカルHTMLファイルから書籍情報を取得"""
@@ -79,39 +91,52 @@ class AmazonScraper:
             raise AmazonScrapingError(f"HTMLパース中にエラーが発生しました: {e}")
     
     def scrape_book_info_from_url(self, url: str) -> BookInfo:
-        """URLから書籍情報を取得"""
-        for attempt in range(self.max_retries):
-            try:
-                # リクエスト間隔制御
-                if attempt > 0:
-                    time.sleep(self.request_delay * (attempt + 1))
-                
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                }
-                
-                response = self.session.get(url, headers=headers, timeout=30)
-                
-                if response.status_code == 404:
-                    raise PageNotFoundError(f"ページが見つかりません: {url}")
-                elif response.status_code == 403:
-                    raise AmazonScrapingError(f"アクセスが拒否されました（CAPTCHA等）: {url}")
-                elif response.status_code != 200:
-                    raise NetworkError(f"HTTPエラー {response.status_code}: {url}")
-                
-                return self._parse_book_info_from_html(response.text)
-                
-            except requests.exceptions.Timeout:
-                if attempt == self.max_retries - 1:
-                    raise NetworkError(f"タイムアウト（{self.max_retries}回試行）: {url}")
-            except requests.exceptions.ConnectionError:
-                if attempt == self.max_retries - 1:
-                    raise NetworkError(f"接続エラー（{self.max_retries}回試行）: {url}")
-            except requests.exceptions.RequestException as e:
-                if attempt == self.max_retries - 1:
-                    raise NetworkError(f"リクエストエラー: {e}")
+        """URLから書籍情報を取得（User-Agentローテーション機能付き）"""
         
-        raise NetworkError(f"最大リトライ回数に達しました: {url}")
+        # User-Agentを順番に試行
+        for ua_index, user_agent in enumerate(self.user_agents):
+            for attempt in range(self.max_retries):
+                try:
+                    # リクエスト間隔制御
+                    if attempt > 0 or ua_index > 0:
+                        time.sleep(self.request_delay * (attempt + 1))
+                    
+                    headers = {'User-Agent': user_agent}
+                    response = self.session.get(url, headers=headers, timeout=30)
+                    
+                    if response.status_code == 404:
+                        raise PageNotFoundError(f"ページが見つかりません: {url}")
+                    elif response.status_code == 403:
+                        # 403の場合は次のUser-Agentを試す
+                        break
+                    elif response.status_code != 200:
+                        raise NetworkError(f"HTTPエラー {response.status_code}: {url}")
+                    
+                    # レビュー取得を検証
+                    book_info = self._parse_book_info_from_html(response.text)
+                    
+                    # レビューが取得できていない場合は次のUser-Agentを試す
+                    if not book_info.reviews and ua_index < len(self.user_agents) - 1:
+                        print(f"⚠️ User-Agent {ua_index + 1}でレビュー未取得、次を試行")
+                        break
+                    
+                    # 成功した場合
+                    if book_info.reviews:
+                        print(f"✅ User-Agent {ua_index + 1}でレビュー{len(book_info.reviews)}件取得")
+                    
+                    return book_info
+                    
+                except requests.exceptions.Timeout:
+                    if attempt == self.max_retries - 1:
+                        break  # 次のUser-Agentを試す
+                except requests.exceptions.ConnectionError:
+                    if attempt == self.max_retries - 1:
+                        break  # 次のUser-Agentを試す
+                except requests.exceptions.RequestException:
+                    if attempt == self.max_retries - 1:
+                        break  # 次のUser-Agentを試す
+        
+        raise NetworkError(f"全てのUser-Agent（{len(self.user_agents)}個）で失敗しました: {url}")
     
     def _parse_book_info_from_html(self, html_content: str) -> BookInfo:
         """HTMLコンテンツから書籍情報をパースする"""
@@ -186,21 +211,34 @@ if __name__ == "__main__":
     import sys
     import argparse
     
-    parser = argparse.ArgumentParser(description='Amazon書籍情報スクレイピングツール')
-    parser.add_argument('--url', type=str, help='Amazon商品ページのURL')
+    parser = argparse.ArgumentParser(
+        description='Amazon書籍情報スクレイピングツール',
+        epilog="""
+使用例:
+  # ローカルHTMLファイルから取得
+  python src/amazon_scraper.py --file data/amazon_page_sample.html
+  
+  # Amazon URLから取得（URLは必ずクォートで囲む）
+  python src/amazon_scraper.py --url "https://www.amazon.co.jp/dp/B01234567X/?ref=abc&other=123"
+  
+  # 結果をファイルに保存
+  python src/amazon_scraper.py --file data/sample.html --output result.json
+  
+注意事項:
+  - URLに & が含まれる場合は、必ずダブルクォートまたはシングルクォートで囲んでください
+  - そうしないとシェルがURLを複数のコマンドとして解釈します
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument('--url', type=str, help='Amazon商品ページのURL（クォートで囲むこと）')
     parser.add_argument('--file', type=str, help='ローカルHTMLファイルパス')
     parser.add_argument('--output', type=str, help='出力JSONファイルパス（指定しない場合は標準出力）')
     
     args = parser.parse_args()
     
     if not args.url and not args.file:
-        # デフォルトでサンプルHTMLファイルを使用
-        sample_file = os.path.join(os.path.dirname(__file__), "..", "amazon_page_sample.html")
-        if os.path.exists(sample_file):
-            args.file = sample_file
-        else:
-            print("エラー: --url または --file を指定してください", file=sys.stderr)
-            sys.exit(1)
+        print("エラー: --url または --file を指定してください", file=sys.stderr)
+        sys.exit(1)
     
     scraper = AmazonScraper()
     
