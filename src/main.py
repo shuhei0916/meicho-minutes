@@ -236,13 +236,24 @@ class MainPipeline:
         try:
             self.logger.info("字幕付き動画生成開始")
             
-            result = self.video_generator.create_youtube_shorts_video(
-                book_info=book_info,
-                script=script,
+            # 1. 背景画像を作成
+            background_image = self.video_generator.create_background_image()
+            
+            # 2. 字幕セグメントを生成
+            from moviepy.editor import AudioFileClip
+            audio_clip = AudioFileClip(audio_path)
+            audio_duration = audio_clip.duration
+            audio_clip.close()
+            
+            subtitle_segments = self.subtitle_generator.generate_subtitle_with_timing(script, audio_duration)
+            
+            # 3. 動画を生成
+            result = self.video_generator.create_video(
+                background_image=background_image,
+                audio_path=audio_path,
+                subtitle_segments=subtitle_segments,
                 output_path=output_path,
-                temp_dir=self.temp_dir,
-                subtitle_style=self.subtitle_style,
-                enable_subtitles=True
+                subtitle_style=self.subtitle_style
             )
             
             self.logger.info(f"字幕付き動画生成完了: {result}")
@@ -252,56 +263,7 @@ class MainPipeline:
             self.logger.error(f"Phase 4 動画生成エラー: {e}")
             raise MeichoMinutesError(f"動画生成に失敗しました: {e}")
     
-    def run_phase4_video_fallback(self, book_info: BookInfo, output_path: str) -> str:
-        """Phase 4: 字幕なし動画を生成（フォールバック）"""
-        try:
-            self.logger.info("字幕なし動画生成開始（フォールバック）")
-            
-            # 一時ファイル作成
-            temp_bg = os.path.join(self.temp_dir, f"bg_{os.getpid()}.jpg")
-            temp_audio = os.path.join(self.temp_dir, f"audio_{os.getpid()}.wav")
-            
-            # 背景画像作成（デフォルト設定から取得）
-            bg_color = self.video_generator.DEFAULT_SETTINGS['video']['background_color']
-            self.video_generator.create_background_image(temp_bg, bg_color)
-            
-            # ダミー音声作成（5秒）
-            self._create_dummy_audio(temp_audio, 5)
-            
-            # 字幕なし動画生成
-            result = self.video_generator.create_video_without_subtitles(
-                temp_bg, temp_audio, output_path
-            )
-            
-            # クリーンアップ
-            for temp_file in [temp_bg, temp_audio]:
-                if os.path.exists(temp_file):
-                    try:
-                        os.unlink(temp_file)
-                    except:
-                        pass
-            
-            self.logger.info(f"字幕なし動画生成完了: {result}")
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"Phase 4 フォールバック動画生成エラー: {e}")
-            raise MeichoMinutesError(f"フォールバック動画生成に失敗しました: {e}")
     
-    def _create_dummy_audio(self, output_path: str, duration_seconds: int = 5):
-        """ダミー音声ファイルを作成"""
-        import wave
-        import struct
-        
-        sample_rate = 22050
-        with wave.open(output_path, 'w') as wav_file:
-            wav_file.setnchannels(1)  # モノラル
-            wav_file.setsampwidth(2)  # 16-bit
-            wav_file.setframerate(sample_rate)
-            
-            # 無音データを書き込み
-            for _ in range(sample_rate * duration_seconds):
-                wav_file.writeframes(struct.pack('<h', 0))
 
 
 def main_phase1_scraping(url: str = None, html_file: str = None, config: Dict[str, Any] = None) -> BookInfo:
