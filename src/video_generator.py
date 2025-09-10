@@ -57,34 +57,18 @@ class VideoGenerator:
         
         self.default_video_settings = self.DEFAULT_SETTINGS['video']
     
-    def create_background_image(self, color: tuple = None) -> Image.Image:
-        """
-        背景画像をPILイメージとして作成
-        
-        Args:
-            color: 背景色（RGB）。指定しない場合はデフォルト設定を使用
-            
-        Returns:
-            作成された背景画像（PIL.Image）
-        """
-        if color is None:
-            color = self.default_video_settings['background_color']
-            
-        return Image.new('RGB', (self.width, self.height), color)
     
     def create_video(
         self, 
-        background_image: Image.Image, 
         audio_path: str, 
         subtitle_segments: List[Dict], 
         output_path: str,
         subtitle_style: SubtitleStyle = None
     ) -> str:
         """
-        背景画像、音声、字幕から動画を作成する
+        音声、字幕から動画を作成する（背景色はデフォルト設定を使用）
         
         Args:
-            background_image: 背景画像（PIL.Image）
             audio_path: 音声ファイルパス
             subtitle_segments: 字幕セグメントのリスト [{"text": str, "start_time": float, "end_time": float}, ...]
             output_path: 出力動画ファイルパス
@@ -98,6 +82,10 @@ class VideoGenerator:
         
         # 音声クリップを読み込み
         audio_clip = AudioFileClip(audio_path)
+        
+        # 背景画像をインラインで作成（デフォルト設定使用）
+        background_color = self.default_video_settings['background_color']
+        background_image = Image.new('RGB', (self.width, self.height), background_color)
         
         # 一時的に背景画像を保存
         with tempfile.NamedTemporaryFile(suffix='.jpg', delete=False) as tmp_bg:
@@ -187,8 +175,7 @@ if __name__ == "__main__":
             # デモ動画生成
             print("=== デモ動画生成 ===")
             
-            # デモ用の背景画像を作成
-            background = generator.create_background_image()
+            # 注意: 背景色はデフォルト設定で自動設定されます
             
             # デモ用の字幕セグメント
             demo_segments = [

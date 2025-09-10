@@ -236,10 +236,7 @@ class MainPipeline:
         try:
             self.logger.info("字幕付き動画生成開始")
             
-            # 1. 背景画像を作成
-            background_image = self.video_generator.create_background_image()
-            
-            # 2. 字幕セグメントを生成
+            # 1. 字幕セグメントを生成
             from moviepy.editor import AudioFileClip
             audio_clip = AudioFileClip(audio_path)
             audio_duration = audio_clip.duration
@@ -247,9 +244,8 @@ class MainPipeline:
             
             subtitle_segments = self.subtitle_generator.generate_subtitle_with_timing(script, audio_duration)
             
-            # 3. 動画を生成
+            # 2. 動画を生成（背景色はデフォルト設定で自動設定）
             result = self.video_generator.create_video(
-                background_image=background_image,
                 audio_path=audio_path,
                 subtitle_segments=subtitle_segments,
                 output_path=output_path,
