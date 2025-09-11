@@ -1,7 +1,13 @@
 import requests
 import os
+import json
 from typing import Dict, Optional
-from src.gemini_script_generator import VideoScript
+
+# VideoScriptクラスのインポート（モジュール実行時の互換性対応）
+try:
+    from src.gemini_script_generator import VideoScript
+except ImportError:
+    from gemini_script_generator import VideoScript
 
 
 class VoiceVoxError(Exception):
@@ -27,7 +33,7 @@ class VoiceVoxTTS:
         VoiceVoxTTSを初期化
         
         Args:
-            server_url: VOICEVOXエンジンのサーバーURL
+            server_url: VOICEVOXエンジンのサーバーURL（ハードコーディング推奨）
             speaker_id: 話者ID（デフォルト: 1）
         """
         self.server_url = server_url
@@ -118,31 +124,43 @@ class VoiceVoxTTS:
 if __name__ == "__main__":
     import sys
     import argparse
-    try:
-        from src.amazon_scraper import AmazonScraper
-        from src.gemini_script_generator import GeminiScriptGenerator
-    except ImportError:
-        from amazon_scraper import AmazonScraper
-        from gemini_script_generator import GeminiScriptGenerator
+    from pathlib import Path
     
-    parser = argparse.ArgumentParser(description='VOICEVOX TTSを使用して音声ファイルを生成')
-    parser.add_argument('--script', type=str, help='VideoScriptのJSONファイルパス')
-    parser.add_argument('--text', type=str, help='直接テキストを指定')
-    parser.add_argument('--url', type=str, help='Amazon商品ページのURL')
-    parser.add_argument('--file', type=str, help='ローカルHTMLファイルパス')
-    parser.add_argument('--output', type=str, required=True, help='出力する音声ファイルパス')
-    parser.add_argument('--speaker', type=int, default=1, help='話者ID（デフォルト: 1）')
-    parser.add_argument('--server', type=str, default='127.0.0.1:50021', help='VOICEVOXサーバーURL')
+    parser = argparse.ArgumentParser(
+        description='VoiceVox TTS - 台本JSONから音声ファイルを生成',
+        epilog="""
+使用例:
+  # 台本JSONから音声生成
+  python src/voicevox_tts.py --script tmp/script.json --output tmp/audio.wav
+  
+  # デフォルト台本データでテスト実行
+  python src/voicevox_tts.py --output test_audio.wav
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    parser.add_argument('--script', type=str, help='台本JSONファイルのパス')
+    parser.add_argument('--output', type=str, help='出力音声ファイルのパス（未指定時は標準エラー出力のみ）')
     
     args = parser.parse_args()
     
+    # ハードコーディングされた設定
+    DEFAULT_SERVER = "127.0.0.1:50021"
+    DEFAULT_SPEAKER = 1
+    
     try:
-        tts = VoiceVoxTTS(server_url=args.server, speaker_id=args.speaker)
+        # VoiceVoxTTSを初期化
+        tts = VoiceVoxTTS(server_url=DEFAULT_SERVER, speaker_id=DEFAULT_SPEAKER)
         
+        # 台本データの準備
         if args.script:
-            # JSONファイルからVideoScriptを読み込み
-            import json
-            with open(args.script, 'r', encoding='utf-8') as f:
+            # JSONファイルから台本を読み込み
+            script_path = Path(args.script)
+            if not script_path.exists():
+                print(f"❌ エラー: ファイルが見つかりません: {args.script}", file=sys.stderr)
+                sys.exit(1)
+            
+            with open(script_path, 'r', encoding='utf-8') as f:
                 script_data = json.load(f)
             
             script = VideoScript(
@@ -151,46 +169,55 @@ if __name__ == "__main__":
                 comments=script_data['comments'],
                 conclusion=script_data['conclusion']
             )
-            print(f"スクリプトファイルから音声生成中: {args.script}")
-            result_path = tts.generate_audio_from_script(script, args.output, args.speaker)
             
-        elif args.text:
-            # 直接テキストから音声生成
-            print(f"テキストから音声生成中: {args.text}")
-            query = tts._create_audio_query(args.text, args.speaker)
-            audio_data = tts._synthesize_audio(query, args.speaker)
-            
-            with open(args.output, 'wb') as f:
-                f.write(audio_data)
-            result_path = args.output
-            
-        elif args.url or args.file:
-            # Amazon商品から台本生成して音声化
-            scraper = AmazonScraper()
-            
-            if args.url:
-                print(f"URLから書籍情報を取得中: {args.url}")
-                book_info = scraper.scrape_book_info_from_url(args.url)
-            else:
-                print(f"ファイルから書籍情報を取得中: {args.file}")
-                book_info = scraper.scrape_book_info_from_html_file(args.file)
-            
-            # Geminiで台本生成
-            script_generator = GeminiScriptGenerator()
-            script = script_generator.generate_script_from_book_info(book_info)
-            
-            print("Gemini APIで台本生成完了")
-            print("VOICEVOX TTSで音声生成中...")
-            
-            result_path = tts.generate_audio_from_script(script, args.output, args.speaker)
+            print(f"📜 台本を読み込み: {script_path}", file=sys.stderr)
         else:
-            print("エラー: --script, --text, --url, --file のいずれかを指定してください")
-            sys.exit(1)
+            # デフォルト台本データを使用
+            script = VideoScript(
+                title="【衝撃】50年前に日本の未来を予言した伝説の書がヤバすぎた…！",
+                overview="半世紀前に日本の未来を予言した伝説の名著。今まさに直面する社会問題のヒントがここに。",
+                comments=[
+                    "50年前の描写が今の日本に刺さりまくる",
+                    "働き方、人間関係の普遍的ヒントが満載",
+                    "この国が迎える未来をすでに予言していた"
+                ],
+                conclusion="この\"予言書\"を読んで、未来を生き抜くヒントを見つけよう！"
+            )
+            print("📜 デフォルト台本データを使用", file=sys.stderr)
         
-        print(f"\n✅ 音声ファイル生成完了!")
-        print(f"   出力先: {result_path}")
-        print(f"   話者ID: {args.speaker}")
+        # 音声生成
+        if args.output:
+            print(f"🎤 VOICEVOX音声生成中... (話者ID: {DEFAULT_SPEAKER})", file=sys.stderr)
+            
+            output_path = Path(args.output)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            result_path = tts.generate_audio_from_script(script, str(output_path))
+            
+            print(f"✅ 音声ファイルを生成しました: {result_path}", file=sys.stderr)
+            print(f"   台本タイトル: {script.title}", file=sys.stderr)
+            print(f"   話者ID: {DEFAULT_SPEAKER}", file=sys.stderr)
+        else:
+            # 出力ファイルが指定されていない場合はテキスト表示のみ
+            print(f"✅ 台本準備完了!", file=sys.stderr)
+            print(f"   台本タイトル: {script.title}", file=sys.stderr)
+            print(f"   コメント数: {len(script.comments)}", file=sys.stderr)
+            print("注意: --output を指定すると音声ファイルが生成されます", file=sys.stderr)
         
+    except FileNotFoundError as e:
+        print(f"❌ ファイルエラー: {e}", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON解析エラー: {e}", file=sys.stderr)
+        print("台本JSONファイルの形式を確認してください", file=sys.stderr)
+        sys.exit(1)
+    except ServerConnectionError as e:
+        print(f"❌ VOICEVOX接続エラー: {e}", file=sys.stderr)
+        print(f"VOICEVOXエンジンが起動しているか確認してください (URL: {DEFAULT_SERVER})", file=sys.stderr)
+        sys.exit(1)
+    except (AudioGenerationError, VoiceVoxError) as e:
+        print(f"❌ 音声生成エラー: {e}", file=sys.stderr)
+        sys.exit(1)
     except Exception as e:
-        print(f"エラー: 音声生成中にエラーが発生しました: {e}")
+        print(f"❌ 予期しないエラー: {e}", file=sys.stderr)
         sys.exit(1)
