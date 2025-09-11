@@ -1,6 +1,7 @@
 import google.generativeai as genai
 import os
 import json
+import re
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, asdict
 from decouple import config
@@ -105,25 +106,44 @@ class GeminiScriptGenerator:
 {reviews_text}
 
 # 出力形式
+以下のJSON形式のみで回答してください。他の文字は含めないでください：
+
 {{
-  "title": "（キャッチーな動画タイトル。20文字以内）",
-  "description": "（本の魅力を端的にまとめた紹介文。約260文字）"
+  "title": "キャッチーな動画タイトル（20文字以内）",
+  "description": "本の魅力を端的にまとめた紹介文（240〜280文字）"
 }}
 
 # 制約
 - 読者の興味を引く言葉選び
 - 短く、感情に訴える表現
-- 紹介文の長さは240〜280文字以内
-- 書籍の魅力を最大限に引き出す
-
-必ずJSON形式で出力してください。
+- titleとdescriptionにはエスケープ文字や余計な引用符を含めない
+- 純粋なJSON形式のみで回答
 """
+    
+    def _extract_json_from_response(self, response_text: str) -> str:
+        """Geminiの応答から最初の有効なJSONブロックを抽出"""
+        # JSONブロック開始と終了を検索
+        start_idx = response_text.find('{')
+        if start_idx == -1:
+            raise ValueError("JSONブロックが見つかりません")
+        
+        brace_count = 0
+        for i in range(start_idx, len(response_text)):
+            if response_text[i] == '{':
+                brace_count += 1
+            elif response_text[i] == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    return response_text[start_idx:i+1]
+        
+        raise ValueError("JSONブロックが完全ではありません")
     
     def _parse_response_to_script(self, response_text: str, book_data: Dict[str, Any]) -> VideoScript:
         """Geminiの応答をVideoScriptオブジェクトに変換"""
         try:
-            # JSON形式でのパースを試行
-            script_data = json.loads(response_text.strip())
+            # 応答から純粋なJSONブロックを抽出
+            json_text = self._extract_json_from_response(response_text)
+            script_data = json.loads(json_text)
             
             # 必須フィールドの確認
             title = script_data.get('title', '').strip()
@@ -159,9 +179,9 @@ class GeminiScriptGenerator:
             for line in lines:
                 line = line.strip()
                 if line.startswith('"title":'):
-                    title = line.split(':', 1)[1].strip().strip('"').strip(',')
+                    title = line.split(':', 1)[1].strip().strip('"').strip("'").strip(',')
                 elif line.startswith('"description":'):
-                    description = line.split(':', 1)[1].strip().strip('"').strip(',')
+                    description = line.split(':', 1)[1].strip().strip('"').strip("'").strip(',')
             
             # デフォルト値設定
             if not title:
@@ -192,15 +212,13 @@ if __name__ == "__main__":
   python src/gemini_script_generator.py --book-json tmp/bookinfo.json --output script.json
   
   # デフォルト書籍データでテスト実行
-  python src/gemini_script_generator.py
+  python src/gemini_script_generator.py --output script.json
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     parser.add_argument('--book-json', type=str, help='書籍情報JSONファイルのパス')
     parser.add_argument('--output', type=str, help='出力ファイルのパス（指定しない場合は標準出力）')
-    parser.add_argument('--format', choices=['json', 'text'], default='text', 
-                        help='出力形式 (json/text, デフォルト: text)')
     
     args = parser.parse_args()
     
@@ -240,11 +258,8 @@ if __name__ == "__main__":
         generator = GeminiScriptGenerator()
         script = generator.generate_script(book_data)
         
-        # 出力形式の選択
-        if args.format == 'json':
-            output_content = script.to_json()
-        else:
-            output_content = script.to_text()
+        # JSON形式で出力（固定）
+        output_content = script.to_json()
         
         # 出力
         if args.output:
