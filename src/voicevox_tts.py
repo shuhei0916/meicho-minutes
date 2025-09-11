@@ -28,16 +28,18 @@ class AudioGenerationError(VoiceVoxError):
 class VoiceVoxTTS:
     """VOICEVOX Text-to-Speech クライアント"""
     
-    def __init__(self, server_url: str = "127.0.0.1:50021", speaker_id: int = 1):
+    def __init__(self, server_url: str = "127.0.0.1:50021", speaker_id: int = 1, speed_scale: float = 1.0):
         """
         VoiceVoxTTSを初期化
         
         Args:
             server_url: VOICEVOXエンジンのサーバーURL（ハードコーディング推奨）
             speaker_id: 話者ID（デフォルト: 1）
+            speed_scale: 話者スピード倍率（0.5〜2.0、デフォルト: 1.0）
         """
         self.server_url = server_url
         self.speaker_id = speaker_id
+        self.speed_scale = speed_scale
         self.base_url = f"http://{server_url}"
     
     def _create_audio_query(self, text: str, speaker_id: int) -> Dict:
@@ -63,6 +65,26 @@ class VoiceVoxTTS:
             return response.json()
         except requests.RequestException as e:
             raise ServerConnectionError(f"音声クエリの生成に失敗しました: {e}")
+    
+    def _modify_audio_query(self, query: Dict, speed_scale: float = None) -> Dict:
+        """
+        音声クエリのパラメータを調整
+        
+        Args:
+            query: 音声クエリの辞書
+            speed_scale: 話者スピード倍率（指定されない場合はインスタンスのデフォルト値を使用）
+        
+        Returns:
+            調整された音声クエリの辞書
+        """
+        if speed_scale is None:
+            speed_scale = self.speed_scale
+        
+        # スピード調整（0.5〜2.0の範囲に制限）
+        speed_scale = max(0.5, min(2.0, speed_scale))
+        query["speedScale"] = speed_scale
+        
+        return query
     
     def _synthesize_audio(self, query: Dict, speaker_id: int) -> bytes:
         """
@@ -105,11 +127,14 @@ class VoiceVoxTTS:
         if speaker_id is None:
             speaker_id = self.speaker_id
         
-        # 台本をテキストに変換
-        script_text = script.to_text()
+        # 台本を音声読み上げ用テキストに変換（見出しなし）
+        script_text = script.to_speech_text()
         
         # 音声クエリ生成
         query = self._create_audio_query(script_text, speaker_id)
+        
+        # 音声クエリのパラメータ調整（スピード等）
+        query = self._modify_audio_query(query)
         
         # 音声合成
         audio_data = self._synthesize_audio(query, speaker_id)
@@ -146,11 +171,12 @@ if __name__ == "__main__":
     
     # ハードコーディングされた設定
     DEFAULT_SERVER = "127.0.0.1:50021"
-    DEFAULT_SPEAKER = 1
+    DEFAULT_SPEAKER = 13
+    DEFAULT_SPEED = 1.2  # 標準スピード
     
     try:
         # VoiceVoxTTSを初期化
-        tts = VoiceVoxTTS(server_url=DEFAULT_SERVER, speaker_id=DEFAULT_SPEAKER)
+        tts = VoiceVoxTTS(server_url=DEFAULT_SERVER, speaker_id=DEFAULT_SPEAKER, speed_scale=DEFAULT_SPEED)
         
         # 台本データの準備
         if args.script:

@@ -34,6 +34,15 @@ class VideoScript:
         script_parts.append(f"【締め】\n{self.conclusion}")
         
         return "\n".join(script_parts)
+    
+    def to_speech_text(self) -> str:
+        """音声読み上げ用テキスト（見出しなし）"""
+        speech_parts = [self.title, self.overview]
+        speech_parts.extend(self.comments)
+        speech_parts.append(self.conclusion)
+        
+        # 自然な読み上げのため、各部分を「。」で区切る
+        return "。".join(speech_parts) + "。"
 
 
 class GeminiScriptGeneratorError(Exception):
