@@ -191,9 +191,7 @@ if __name__ == "__main__":
             
             script = VideoScript(
                 title=script_data['title'],
-                overview=script_data['overview'],
-                comments=script_data['comments'],
-                conclusion=script_data['conclusion']
+                description=script_data['description']
             )
             
             print(f"📜 台本を読み込み: {script_path}", file=sys.stderr)
@@ -201,13 +199,7 @@ if __name__ == "__main__":
             # デフォルト台本データを使用
             script = VideoScript(
                 title="【衝撃】50年前に日本の未来を予言した伝説の書がヤバすぎた…！",
-                overview="半世紀前に日本の未来を予言した伝説の名著。今まさに直面する社会問題のヒントがここに。",
-                comments=[
-                    "50年前の描写が今の日本に刺さりまくる",
-                    "働き方、人間関係の普遍的ヒントが満載",
-                    "この国が迎える未来をすでに予言していた"
-                ],
-                conclusion="この\"予言書\"を読んで、未来を生き抜くヒントを見つけよう！"
+                description="半世紀前に日本の未来を予言した伝説の名著。今まさに直面する社会問題のヒントがここに。50年前の描写が今の日本に刺さりまくり、働き方、人間関係の普遍的ヒントが満載。この国が迎える未来をすでに予言していたこの\"予言書\"を読んで、未来を生き抜くヒントを見つけよう！"
             )
             print("📜 デフォルト台本データを使用", file=sys.stderr)
         
@@ -227,7 +219,7 @@ if __name__ == "__main__":
             # 出力ファイルが指定されていない場合はテキスト表示のみ
             print(f"✅ 台本準備完了!", file=sys.stderr)
             print(f"   台本タイトル: {script.title}", file=sys.stderr)
-            print(f"   コメント数: {len(script.comments)}", file=sys.stderr)
+            print(f"   紹介文長: {len(script.description)}文字", file=sys.stderr)
             print("注意: --output を指定すると音声ファイルが生成されます", file=sys.stderr)
         
     except FileNotFoundError as e:

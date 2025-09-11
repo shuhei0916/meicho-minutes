@@ -10,39 +10,19 @@ from decouple import config
 class VideoScript:
     """動画台本を表すデータクラス"""
     title: str
-    overview: str
-    comments: list[str] 
-    conclusion: str
-    
-    def to_dict(self) -> dict:
-        """辞書形式に変換"""
-        return asdict(self)
+    description: str
     
     def to_json(self, indent=2) -> str:
         """JSON文字列に変換"""
-        return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
+        return json.dumps(asdict(self), ensure_ascii=False, indent=indent)
     
     def to_text(self) -> str:
         """台本テキスト形式に変換"""
-        script_parts = []
-        script_parts.append(f"【タイトル】\n{self.title}\n")
-        script_parts.append(f"【概要】\n{self.overview}\n")
-        
-        for i, comment in enumerate(self.comments, 1):
-            script_parts.append(f"【コメント{i}】\n{comment}\n")
-        
-        script_parts.append(f"【締め】\n{self.conclusion}")
-        
-        return "\n".join(script_parts)
+        return f"【タイトル】\n{self.title}\n\n【紹介文】\n{self.description}"
     
     def to_speech_text(self) -> str:
         """音声読み上げ用テキスト（見出しなし）"""
-        speech_parts = [self.title, self.overview]
-        speech_parts.extend(self.comments)
-        speech_parts.append(self.conclusion)
-        
-        # 自然な読み上げのため、各部分を「。」で区切る
-        return "。".join(speech_parts) + "。"
+        return f"{self.title}。{self.description}"
 
 
 class GeminiScriptGeneratorError(Exception):
@@ -112,8 +92,7 @@ class GeminiScriptGenerator:
     def _create_prompt(self, book_data: Dict[str, Any], reviews_text: str) -> str:
         """台本生成用のプロンプトを作成"""
         return f"""
-あなたはYouTubeショート動画の台本作成の専門家です。
-以下の書籍情報を基に、60秒程度のショート動画用台本を作成してください。
+以下の書籍情報をもとに、YouTubeショート動画用の台本を作成してください。
 
 # 書籍情報
 - タイトル: {book_data.get('title', '')}
@@ -125,75 +104,75 @@ class GeminiScriptGenerator:
 # カスタマーレビュー
 {reviews_text}
 
-# 台本構成要件
-1. 【タイトル】: キャッチーで興味を引く動画タイトル（例：「50年前に書かれた伝説の予言書がヤバすぎた・・・！」）
-2. 【概要】: 本の内容を1-2文で魅力的に紹介
-3. 【コメント1】: レビューや書籍内容から印象的なポイントを1つ（30文字程度）
-4. 【コメント2】: 別の角度からの魅力的なポイント（30文字程度）  
-5. 【コメント3】: さらに別の興味深い点（30文字程度、オプション）
-6. 【締め】: 視聴者の行動を促す一言（購入意欲を高める）
-
 # 出力形式
-以下の形式で出力してください：
-タイトル: [ここに動画タイトル]
-概要: [ここに本の概要]
-コメント1: [ここにコメント1]
-コメント2: [ここにコメント2]
-コメント3: [ここにコメント3]（オプション）
-締め: [ここに締めの一言]
+{{
+  "title": "（キャッチーな動画タイトル。20文字以内）",
+  "description": "（本の魅力を端的にまとめた紹介文。約260文字）"
+}}
 
-# 注意事項
-- YouTube視聴者（20-40代）に響く表現を使用
-- 感情に訴える言葉選び
-- 短時間で伝わる簡潔な表現
+# 制約
+- 読者の興味を引く言葉選び
+- 短く、感情に訴える表現
+- 紹介文の長さは240〜280文字以内
 - 書籍の魅力を最大限に引き出す
+
+必ずJSON形式で出力してください。
 """
     
     def _parse_response_to_script(self, response_text: str, book_data: Dict[str, Any]) -> VideoScript:
         """Geminiの応答をVideoScriptオブジェクトに変換"""
-        lines = response_text.strip().split('\n')
-        
-        script_data = {
-            'title': '',
-            'overview': '', 
-            'comments': [],
-            'conclusion': ''
-        }
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-                
-            if line.startswith('タイトル:'):
-                script_data['title'] = line.replace('タイトル:', '').strip()
-            elif line.startswith('概要:'):
-                script_data['overview'] = line.replace('概要:', '').strip()
-            elif line.startswith('コメント1:'):
-                script_data['comments'].append(line.replace('コメント1:', '').strip())
-            elif line.startswith('コメント2:'):
-                script_data['comments'].append(line.replace('コメント2:', '').strip())
-            elif line.startswith('コメント3:'):
-                script_data['comments'].append(line.replace('コメント3:', '').strip())
-            elif line.startswith('締め:'):
-                script_data['conclusion'] = line.replace('締め:', '').strip()
-        
-        # 必須フィールドのチェックとデフォルト値設定
-        if not script_data['title']:
-            script_data['title'] = f"{book_data.get('title', '未知の書籍')}が面白すぎる件について"
-        if not script_data['overview']:
-            script_data['overview'] = book_data.get('description', '') or "この本、めちゃくちゃ面白いんです！"
-        if not script_data['comments']:
-            script_data['comments'] = ["読者からの評価も高い！", "この内容は必見です"]
-        if not script_data['conclusion']:
-            script_data['conclusion'] = "気になった方はぜひチェックしてみてください！"
-        
-        return VideoScript(
-            title=script_data['title'],
-            overview=script_data['overview'],
-            comments=script_data['comments'],
-            conclusion=script_data['conclusion']
-        )
+        try:
+            # JSON形式でのパースを試行
+            script_data = json.loads(response_text.strip())
+            
+            # 必須フィールドの確認
+            title = script_data.get('title', '').strip()
+            description = script_data.get('description', '').strip()
+            
+            # バリデーション
+            if not title:
+                title = f"{book_data.get('title', '未知の書籍')}が面白すぎる件"
+            if not description:
+                description = book_data.get('description', '') or "この本、めちゃくちゃ面白いんです！読者からの評価も高く、現代に必要な知識が詰まった必読の一冊です。"
+            
+            # 文字数制限チェック
+            if len(title) > 20:
+                title = title[:17] + "..."
+            if len(description) > 280:
+                description = description[:277] + "..."
+            elif len(description) < 240:
+                # 短すぎる場合は補足
+                if len(description) < 200:
+                    description += "ぜひ一度手に取ってみてください。"
+            
+            return VideoScript(
+                title=title,
+                description=description
+            )
+            
+        except json.JSONDecodeError:
+            # JSON解析に失敗した場合はフォールバック処理
+            lines = response_text.strip().split('\n')
+            title = ""
+            description = ""
+            
+            for line in lines:
+                line = line.strip()
+                if line.startswith('"title":'):
+                    title = line.split(':', 1)[1].strip().strip('"').strip(',')
+                elif line.startswith('"description":'):
+                    description = line.split(':', 1)[1].strip().strip('"').strip(',')
+            
+            # デフォルト値設定
+            if not title:
+                title = f"{book_data.get('title', '未知の書籍')}が面白すぎる件"
+            if not description:
+                description = book_data.get('description', '') or "この本、めちゃくちゃ面白いんです！読者からの評価も高く、現代に必要な知識が詰まった必読の一冊です。"
+            
+            return VideoScript(
+                title=title[:20] if len(title) > 20 else title,
+                description=description[:280] if len(description) > 280 else description
+            )
 
 
 if __name__ == "__main__":
@@ -277,12 +256,12 @@ if __name__ == "__main__":
             
             print(f"✅ 台本を保存しました: {output_path}", file=sys.stderr)
             print(f"   タイトル: {script.title}", file=sys.stderr)
-            print(f"   コメント数: {len(script.comments)}", file=sys.stderr)
+            print(f"   紹介文長: {len(script.description)}文字", file=sys.stderr)
         else:
             print(output_content)
             print(f"\n✅ 台本生成完了!", file=sys.stderr)
             print(f"   タイトル: {script.title}", file=sys.stderr)
-            print(f"   コメント数: {len(script.comments)}", file=sys.stderr)
+            print(f"   紹介文長: {len(script.description)}文字", file=sys.stderr)
         
     except FileNotFoundError as e:
         print(f"❌ ファイルエラー: {e}", file=sys.stderr)
