@@ -1,0 +1,35 @@
+[Script Info]
+Title: VoiceVox Generated Subtitles
+ScriptType: v4.00+
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+YCbCr Matrix: TV.601
+PlayResX: 1920
+PlayResY: 1080
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Noto Sans CJK JP,64,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,3,0,2,60,60,60,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:01.94,Default,,0,0,0,,まさか70年代に予言？
+Dialogue: 0,0:00:02.14,0:00:03.19,Default,,0,0,0,,日本の未来。
+Dialogue: 0,0:00:03.39,0:00:05.69,Default,,0,0,0,,堺屋太一『団塊の世代』は、
+Dialogue: 0,0:00:05.89,0:00:09.06,Default,,0,0,0,,1970年代に書かれたにも関わらず、
+Dialogue: 0,0:00:09.26,0:00:12.79,Default,,0,0,0,,現代日本の社会問題を驚くほど予言した名著
+Dialogue: 0,0:00:12.89,0:00:13.42,Default,,0,0,0,,です。
+Dialogue: 0,0:00:13.52,0:00:16.88,Default,,0,0,0,,団塊の世代が経済社会に何をもたらすか、
+Dialogue: 0,0:00:17.08,0:00:20.08,Default,,0,0,0,,大量定年や老齢化問題への対策まで、
+Dialogue: 0,0:00:20.28,0:00:21.86,Default,,0,0,0,,その洞察力は圧巻。
+Dialogue: 0,0:00:22.06,0:00:25.59,Default,,0,0,0,,団塊世代サラリーマンの切ない日常と当時の
+Dialogue: 0,0:00:25.69,0:00:28.16,Default,,0,0,0,,空気感をリアルに描写しつつ、
+Dialogue: 0,0:00:28.26,0:00:31.79,Default,,0,0,0,,人口アンバランスに直面した日本人の「リア
+Dialogue: 0,0:00:31.89,0:00:35.42,Default,,0,0,0,,ルなグダグダっぷり」―無策な対応や責任転
+Dialogue: 0,0:00:35.52,0:00:37.99,Default,,0,0,0,,嫁―を鮮やかに描き出します。
+Dialogue: 0,0:00:38.09,0:00:41.44,Default,,0,0,0,,まるで現代の私たちを見ているかのよう。
+Dialogue: 0,0:00:41.64,0:00:45.00,Default,,0,0,0,,令和時代の史料としても必読のこの一冊。
+Dialogue: 0,0:00:45.20,0:00:46.79,Default,,0,0,0,,50年前の予言が、
+Dialogue: 0,0:00:46.99,0:00:47.34,Default,,0,0,0,,今、
+Dialogue: 0,0:00:47.54,0:00:50.19,Default,,0,0,0,,あなたの未来をどう照らすのか。
+Dialogue: 0,0:00:50.39,0:00:53.38,Default,,0,0,0,,日本の真実をぜひ体感してください！
