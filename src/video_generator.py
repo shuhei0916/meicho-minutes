@@ -1,5 +1,6 @@
 import os
 import tempfile
+import re
 from PIL import Image
 from typing import List, Dict, Optional
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip, ImageClip
@@ -190,6 +191,110 @@ class VideoGenerator:
             output_path=output_path,
             subtitle_style=subtitle_style
         )
+    
+    def parse_ass_subtitle_file(self, ass_file_path: str) -> List[Dict[str, any]]:
+        """
+        ASS字幕ファイルを解析して字幕セグメントを抽出
+        
+        Args:
+            ass_file_path: ASS字幕ファイルのパス
+            
+        Returns:
+            字幕セグメント [{"text": str, "start_time": float, "end_time": float}, ...]
+        """
+        if not os.path.exists(ass_file_path):
+            raise FileNotFoundError(f"ASS字幕ファイルが見つかりません: {ass_file_path}")
+        
+        segments = []
+        
+        try:
+            with open(ass_file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Dialogueライン抽出
+            dialogue_pattern = r'^Dialogue:\s*(\d+),([^,]+),([^,]+),([^,]+),[^,]*,[^,]*,[^,]*,[^,]*,(.+)$'
+            
+            for line in content.split('\n'):
+                line = line.strip()
+                if not line.startswith('Dialogue:'):
+                    continue
+                
+                match = re.match(dialogue_pattern, line)
+                if match:
+                    layer, start_time_str, end_time_str, style, text = match.groups()
+                    
+                    # ASS時間形式をfloatに変換
+                    start_time = self._parse_ass_time(start_time_str)
+                    end_time = self._parse_ass_time(end_time_str)
+                    
+                    # テキストからASS形式のエスケープを除去
+                    clean_text = text.replace('\\N', '\n').replace('\\n', '\n')
+                    
+                    segments.append({
+                        "text": clean_text,
+                        "start_time": start_time,
+                        "end_time": end_time
+                    })
+            
+            # 開始時間でソート
+            segments.sort(key=lambda x: x["start_time"])
+            
+        except Exception as e:
+            raise ValueError(f"ASS字幕ファイルの解析に失敗: {e}")
+        
+        return segments
+    
+    def _parse_ass_time(self, time_str: str) -> float:
+        """
+        ASS時間形式（H:MM:SS.CC）を秒数（float）に変換
+        
+        Args:
+            time_str: ASS時間形式の文字列
+            
+        Returns:
+            秒数（float）
+        """
+        # H:MM:SS.CC形式をパース
+        time_pattern = r'^(\d+):(\d{2}):(\d{2})\.(\d{2})$'
+        match = re.match(time_pattern, time_str.strip())
+        
+        if not match:
+            raise ValueError(f"無効なASS時間形式: {time_str}")
+        
+        hours, minutes, seconds, centiseconds = map(int, match.groups())
+        total_seconds = hours * 3600 + minutes * 60 + seconds + centiseconds / 100.0
+        
+        return total_seconds
+    
+    def create_video_from_ass_subtitle(
+        self,
+        audio_path: str,
+        ass_subtitle_path: str, 
+        output_path: str,
+        subtitle_style: SubtitleStyle = None
+    ) -> str:
+        """
+        音声ファイルとASS字幕ファイルから動画を作成
+        
+        Args:
+            audio_path: 音声ファイルパス
+            ass_subtitle_path: ASS字幕ファイルパス
+            output_path: 出力動画ファイルパス
+            subtitle_style: 字幕スタイル設定
+            
+        Returns:
+            作成された動画ファイルのパス
+        """
+        # ASS字幕ファイルを解析
+        subtitle_segments = self.parse_ass_subtitle_file(ass_subtitle_path)
+        
+        # 既存のcreate_videoメソッドを使用
+        return self.create_video(
+            audio_path=audio_path,
+            subtitle_segments=subtitle_segments,
+            output_path=output_path,
+            subtitle_style=subtitle_style
+        )
 
 
 if __name__ == "__main__":
@@ -201,6 +306,7 @@ if __name__ == "__main__":
     parser.add_argument('--demo', action='store_true', help='デモ動画を生成')
     parser.add_argument('--script-json', type=str, help='JSONスクリプトファイルパス')
     parser.add_argument('--audio', type=str, help='音声ファイルパス')
+    parser.add_argument('--ass-subtitle', type=str, help='ASS字幕ファイルパス')
     parser.add_argument('--output', type=str, help='出力動画ファイルパス')
     parser.add_argument('--no-subtitles', action='store_true', help='字幕なしで動画生成')
     parser.add_argument('--subtitle-test', action='store_true', help='字幕タイミングテストモード')
@@ -230,6 +336,34 @@ if __name__ == "__main__":
             # デモ音声ファイルが必要（実際の使用では外部で用意）
             print("注意: 音声ファイルが必要です。実際の使用では音声ファイルパスを指定してください。")
             print("デモではスキップしました。")
+            
+        elif args.audio and args.ass_subtitle:
+            # 音声ファイル+ASS字幕ファイルから動画生成
+            from pathlib import Path
+            
+            audio_path = Path(args.audio)
+            ass_path = Path(args.ass_subtitle)
+            
+            if not audio_path.exists():
+                print(f"❌ エラー: 音声ファイルが見つかりません: {args.audio}")
+                sys.exit(1)
+            
+            if not ass_path.exists():
+                print(f"❌ エラー: ASS字幕ファイルが見つかりません: {args.ass_subtitle}")
+                sys.exit(1)
+            
+            print(f"🎵 音声読み込み: {audio_path}")
+            print(f"📝 ASS字幕読み込み: {ass_path}")
+            
+            # 動画生成
+            print("🎬 ASS字幕付き動画生成中...")
+            result = generator.create_video_from_ass_subtitle(
+                audio_path=str(audio_path),
+                ass_subtitle_path=str(ass_path),
+                output_path=args.output
+            )
+            
+            print(f"✅ ASS字幕付き動画生成完了: {result}")
             
         elif args.script_json and args.audio:
             # JSONファイルと音声ファイルから動画生成
@@ -293,9 +427,10 @@ if __name__ == "__main__":
             
         else:
             print("使用方法:")
-            print("  --demo --output video.mp4                                    : デモ動画生成")
-            print("  --script-json script.json --audio audio.wav --output video.mp4 : 台本+音声から動画生成")
-            print("  --script-json script.json --audio audio.wav --subtitle-test   : 字幕タイミングテスト")
+            print("  --demo --output video.mp4                                          : デモ動画生成")
+            print("  --script-json script.json --audio audio.wav --output video.mp4     : 台本+音声から動画生成")
+            print("  --audio audio.wav --ass-subtitle subtitle.ass --output video.mp4   : 音声+ASS字幕から動画生成")
+            print("  --script-json script.json --audio audio.wav --subtitle-test        : 字幕タイミングテスト")
             print("  --script-json script.json --audio audio.wav --no-subtitles --output video.mp4 : 字幕なし動画")
             print("\n設定:")
             print("  字幕・動画設定はコード内にハードコーディングされています")
@@ -303,6 +438,7 @@ if __name__ == "__main__":
             print("\n例:")
             print("  python src/video_generator.py --demo --output demo_video.mp4")
             print("  python src/video_generator.py --script-json tmp/script.json --audio tmp/audio.wav --output video.mp4")
+            print("  python src/video_generator.py --audio tmp/audio.wav --ass-subtitle tmp/subtitle.ass --output video.mp4")
             print("  python src/video_generator.py --script-json tmp/script.json --audio tmp/audio.wav --subtitle-test")
             sys.exit(1)
     
