@@ -1,9 +1,10 @@
 import os
 import tempfile
 from PIL import Image
-from typing import List, Dict
+from typing import List, Dict, Optional
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeVideoClip, ImageClip
 from src.subtitle_image_generator import SubtitleImageGenerator, SubtitleStyle
+from src.subtitle_timing_generator import SubtitleTimingGenerator
 
 
 class VideoGenerator:
@@ -42,6 +43,9 @@ class VideoGenerator:
         
         # 字幕画像生成器を初期化
         self.subtitle_image_generator = SubtitleImageGenerator(width, height)
+        
+        # 字幕タイミング生成器を初期化
+        self.subtitle_timing_generator = SubtitleTimingGenerator()
         
         # デフォルト設定からスタイルオブジェクトを作成
         self.default_subtitle_style = SubtitleStyle(
@@ -154,6 +158,38 @@ class VideoGenerator:
             for temp_path in temp_subtitle_paths:
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
+    
+    def create_video_from_script_and_audio(
+        self,
+        script_text: str,
+        audio_path: str,
+        output_path: str,
+        subtitle_style: SubtitleStyle = None
+    ) -> str:
+        """
+        台本テキストと音声ファイルから動画を作成（字幕タイミング自動生成）
+        
+        Args:
+            script_text: 台本テキスト
+            audio_path: 音声ファイルパス  
+            output_path: 出力動画ファイルパス
+            subtitle_style: 字幕スタイル設定
+            
+        Returns:
+            作成された動画ファイルのパス
+        """
+        # 字幕タイミングを自動生成
+        subtitle_segments = self.subtitle_timing_generator.generate_subtitle_segments(
+            script_text, audio_path
+        )
+        
+        # 既存のcreate_videoメソッドを呼び出し
+        return self.create_video(
+            audio_path=audio_path,
+            subtitle_segments=subtitle_segments,
+            output_path=output_path,
+            subtitle_style=subtitle_style
+        )
 
 
 if __name__ == "__main__":
@@ -164,9 +200,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='純粋動画生成ライブラリ')
     parser.add_argument('--demo', action='store_true', help='デモ動画を生成')
     parser.add_argument('--script-json', type=str, help='JSONスクリプトファイルパス')
-    parser.add_argument('--output', type=str, required=True, help='出力動画ファイルパス')
+    parser.add_argument('--audio', type=str, help='音声ファイルパス')
+    parser.add_argument('--output', type=str, help='出力動画ファイルパス')
+    parser.add_argument('--no-subtitles', action='store_true', help='字幕なしで動画生成')
+    parser.add_argument('--subtitle-test', action='store_true', help='字幕タイミングテストモード')
     
     args = parser.parse_args()
+    
+    # --subtitle-test以外では--outputが必要
+    if not args.subtitle_test and not args.output:
+        parser.error("--output は --subtitle-test モード以外では必須です")
     
     try:
         generator = VideoGenerator()
@@ -188,28 +231,93 @@ if __name__ == "__main__":
             print("注意: 音声ファイルが必要です。実際の使用では音声ファイルパスを指定してください。")
             print("デモではスキップしました。")
             
-        elif args.script_json:
-            # JSONファイルから台本を読み込んで動画生成
-            with open(args.script_json, 'r', encoding='utf-8') as f:
+        elif args.script_json and args.audio:
+            # JSONファイルと音声ファイルから動画生成
+            from pathlib import Path
+            
+            script_path = Path(args.script_json)
+            audio_path = Path(args.audio)
+            
+            if not script_path.exists():
+                print(f"❌ エラー: スクリプトファイルが見つかりません: {args.script_json}")
+                sys.exit(1)
+            
+            if not audio_path.exists():
+                print(f"❌ エラー: 音声ファイルが見つかりません: {args.audio}")
+                sys.exit(1)
+            
+            # JSONから台本テキストを抽出
+            with open(script_path, 'r', encoding='utf-8') as f:
                 script_data = json.load(f)
             
-            print(f"JSONスクリプトから動画生成中: {args.script_json}")
-            print("注意: 実際の使用では背景画像、音声ファイル、字幕セグメントを外部で準備してください。")
+            # 新しい形式（title + description）に対応
+            if 'description' in script_data:
+                script_text = f"{script_data['title']}。{script_data['description']}"
+            else:
+                # 古い形式のフォールバック
+                script_text = f"{script_data.get('title', '')}。{script_data.get('overview', '')}"
+            
+            print(f"📜 台本読み込み: {script_path}")
+            print(f"🎵 音声読み込み: {audio_path}")
+            
+            if args.subtitle_test:
+                # 字幕タイミングテストモード
+                print("⏱️  字幕タイミング生成テスト...")
+                timing_generator = SubtitleTimingGenerator()
+                segments = timing_generator.generate_subtitle_segments(script_text, str(audio_path))
+                
+                print(f"✅ 字幕セグメント数: {len(segments)}")
+                for i, seg in enumerate(segments):
+                    print(f"  {i+1:2d}. [{seg['start_time']:6.1f}s - {seg['end_time']:6.1f}s] {seg['text'][:50]}...")
+                    
+            else:
+                # 実際の動画生成
+                print("🎬 動画生成中...")
+                
+                if args.no_subtitles:
+                    # 字幕なしで動画生成（背景+音声のみ）
+                    result = generator.create_video(
+                        audio_path=str(audio_path),
+                        subtitle_segments=[],  # 空の字幕セグメント
+                        output_path=args.output
+                    )
+                else:
+                    # 字幕ありで動画生成
+                    result = generator.create_video_from_script_and_audio(
+                        script_text=script_text,
+                        audio_path=str(audio_path),
+                        output_path=args.output
+                    )
+                
+                print(f"✅ 動画生成完了: {result}")
             
         else:
             print("使用方法:")
-            print("  --demo --output video.mp4                    : デモ動画生成")
-            print("  --script-json script.json --output video.mp4 : JSONスクリプトから動画生成")
+            print("  --demo --output video.mp4                                    : デモ動画生成")
+            print("  --script-json script.json --audio audio.wav --output video.mp4 : 台本+音声から動画生成")
+            print("  --script-json script.json --audio audio.wav --subtitle-test   : 字幕タイミングテスト")
+            print("  --script-json script.json --audio audio.wav --no-subtitles --output video.mp4 : 字幕なし動画")
             print("\n設定:")
             print("  字幕・動画設定はコード内にハードコーディングされています")
             print("  設定変更は src/video_generator.py の DEFAULT_SETTINGS を編集してください")
             print("\n例:")
             print("  python src/video_generator.py --demo --output demo_video.mp4")
-            print("  python src/video_generator.py --script-json script.json --output video.mp4")
+            print("  python src/video_generator.py --script-json tmp/script.json --audio tmp/audio.wav --output video.mp4")
+            print("  python src/video_generator.py --script-json tmp/script.json --audio tmp/audio.wav --subtitle-test")
             sys.exit(1)
     
+    except FileNotFoundError as e:
+        print(f"❌ ファイルエラー: {e}", file=sys.stderr)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON解析エラー: {e}", file=sys.stderr)
+        print("台本JSONファイルの形式を確認してください", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"❌ 設定エラー: {e}", file=sys.stderr)
+        sys.exit(1)
     except Exception as e:
-        print(f"エラー: 動画生成中にエラーが発生しました: {e}")
+        print(f"❌ 予期しないエラー: {e}", file=sys.stderr)
         import traceback
         traceback.print_exc()
         sys.exit(1)
