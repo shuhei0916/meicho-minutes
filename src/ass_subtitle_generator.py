@@ -292,7 +292,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         for chunk in subtitle_chunks:
             start_time = self._format_ass_time(chunk.start_time)
             end_time = self._format_ass_time(chunk.end_time)
-            text = chunk.text.replace('\n', '\\N')  # 改行をASS形式にエスケープ
+            
+            # テキスト処理: 改行をエスケープし、文末の句読点を除去
+            text = chunk.text.replace('\n', '\\N')
+            # 文末の句読点（、。！？）を除去
+            if text and text[-1] in ['、', '。', '！', '？']:
+                text = text[:-1]
             
             dialogue = f"Dialogue: 0,{start_time},{end_time},{style_name},,0,0,0,,{text}"
             dialogues.append(dialogue)
