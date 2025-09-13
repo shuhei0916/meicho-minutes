@@ -1,6 +1,6 @@
 import pytest
 from src.subtitle_generator import SubtitleGenerator
-from src.gemini_script_generator import VideoScript
+from src.script_generator import VideoScript
 
 
 def test_subtitle_generator_initialization():

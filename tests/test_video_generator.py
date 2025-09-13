@@ -187,7 +187,7 @@ def test_create_youtube_shorts_video():
         reviews=[]
     )
     
-    from src.gemini_script_generator import VideoScript
+    from src.script_generator import VideoScript
     script = VideoScript(
         title="ショート動画テスト",
         overview="短い概要",

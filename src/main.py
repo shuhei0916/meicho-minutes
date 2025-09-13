@@ -202,10 +202,10 @@ class MainPipeline:
     def run_phase2_script(self, book_info: BookInfo):
         """Phase 2: Gemini で動画台本を生成"""
         try:
-            from src.gemini_script_generator import GeminiScriptGenerator
+            from src.script_generator import ScriptGenerator
             
             self.logger.info("Gemini APIで台本生成開始")
-            script_generator = GeminiScriptGenerator()
+            script_generator = ScriptGenerator()
             # BookInfoを辞書に変換（新API対応）
             book_data = {
                 "title": book_info.title or "",

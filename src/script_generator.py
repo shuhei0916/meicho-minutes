@@ -26,24 +26,24 @@ class VideoScript:
         return f"{self.title}。{self.description}"
 
 
-class GeminiScriptGeneratorError(Exception):
-    """Gemini台本生成関連のエラー"""
+class ScriptGeneratorError(Exception):
+    """台本生成関連のエラー"""
     pass
 
 
-class GeminiScriptGenerator:
-    """Gemini APIを使用した動画台本生成クラス"""
+class ScriptGenerator:
+    """AI APIを使用した動画台本生成クラス"""
     
     def __init__(self, api_key: Optional[str] = None):
         """
-        GeminiScriptGeneratorを初期化
+        ScriptGeneratorを初期化
         
         Args:
-            api_key: Gemini APIキー。未指定の場合は環境変数から取得
+            api_key: AI APIキー。未指定の場合は環境変数から取得
         """
         self.api_key = api_key or config('GEMINI_API_KEY', default='')
         if not self.api_key:
-            raise GeminiScriptGeneratorError("GEMINI_API_KEYが設定されていません")
+            raise ScriptGeneratorError("GEMINI_API_KEYが設定されていません")
         
         # Gemini APIクライアントを設定
         genai.configure(api_key=self.api_key)
@@ -82,13 +82,13 @@ class GeminiScriptGenerator:
             response = self.client.generate_content(prompt)
             
             if not response.text:
-                raise GeminiScriptGeneratorError("Gemini APIからの応答が空です")
+                raise ScriptGeneratorError("AI APIからの応答が空です")
             
             # レスポンスをパースしてVideoScriptオブジェクトに変換
             return self._parse_response_to_script(response.text, book_data)
             
         except Exception as e:
-            raise GeminiScriptGeneratorError(f"台本生成中にエラーが発生しました: {e}")
+            raise ScriptGeneratorError(f"台本生成中にエラーが発生しました: {e}")
     
     def _create_prompt(self, book_data: Dict[str, Any], reviews_text: str) -> str:
         """台本生成用のプロンプトを作成"""
@@ -110,7 +110,7 @@ class GeminiScriptGenerator:
 
 {{
   "title": "キャッチーな動画タイトル（20文字以内）",
-  "description": "本の魅力を端的にまとめた紹介文（240〜280文字）。改行を含めないで"
+  "description": "本の魅力を端的にまとめた紹介文（240〜280文字）。"
 }}
 
 # 制約
@@ -202,17 +202,17 @@ if __name__ == "__main__":
     from pathlib import Path
     
     parser = argparse.ArgumentParser(
-        description='Gemini Script Generator - 書籍情報から動画台本を生成',
+        description='Script Generator - 書籍情報から動画台本を生成',
         epilog="""
 使用例:
   # JSONファイルから台本生成
-  python src/gemini_script_generator.py --book-json tmp/bookinfo.json
+  python src/script_generator.py --book-json tmp/bookinfo.json
   
   # 出力をファイルに保存
-  python src/gemini_script_generator.py --book-json tmp/bookinfo.json --output script.json
+  python src/script_generator.py --book-json tmp/bookinfo.json --output script.json
   
   # デフォルト書籍データでテスト実行
-  python src/gemini_script_generator.py --output script.json
+  python src/script_generator.py --output script.json
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -254,8 +254,8 @@ if __name__ == "__main__":
             print("📚 デフォルト書籍データを使用", file=sys.stderr)
         
         # 台本生成
-        print("🤖 Gemini APIで台本生成中...", file=sys.stderr)
-        generator = GeminiScriptGenerator()
+        print("🤖 AI APIで台本生成中...", file=sys.stderr)
+        generator = ScriptGenerator()
         script = generator.generate_script(book_data)
         
         # JSON形式で出力（固定）
@@ -285,7 +285,7 @@ if __name__ == "__main__":
         print(f"❌ JSON解析エラー: {e}", file=sys.stderr)
         print("書籍情報JSONファイルの形式を確認してください", file=sys.stderr)
         sys.exit(1)
-    except GeminiScriptGeneratorError as e:
+    except ScriptGeneratorError as e:
         print(f"❌ 台本生成エラー: {e}", file=sys.stderr)
         print("注意: GEMINI_API_KEY環境変数が設定されているか確認してください", file=sys.stderr)
         sys.exit(1)

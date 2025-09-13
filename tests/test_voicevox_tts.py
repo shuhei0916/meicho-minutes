@@ -4,7 +4,7 @@ import tempfile
 import requests
 from unittest.mock import patch, MagicMock
 from src.voicevox_tts import VoiceVoxTTS, VoiceVoxError, ServerConnectionError, AudioGenerationError
-from src.gemini_script_generator import VideoScript
+from src.script_generator import VideoScript
 
 
 def test_voicevox_tts_initialization():

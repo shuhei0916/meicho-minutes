@@ -12,7 +12,7 @@ import argparse
 # src/ モジュールへのパスを追加
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from gemini_script_generator import GeminiScriptGenerator
+from script_generator import ScriptGenerator
 from amazon_scraper import AmazonScraper
 
 
@@ -72,7 +72,7 @@ def main():
         
         # 台本生成
         print("Gemini APIで台本生成中...", file=sys.stderr)
-        generator = GeminiScriptGenerator()
+        generator = ScriptGenerator()
         script = generator.generate_script(book_data)
         
         # 出力

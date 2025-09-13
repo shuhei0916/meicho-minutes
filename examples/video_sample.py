@@ -10,7 +10,7 @@ sys.path.append('/mnt/c/Users/Ito/projects/meicho-minutes')
 
 from moviepy.editor import AudioFileClip, ImageClip, CompositeVideoClip
 from src.video_generator import VideoGenerator
-from src.gemini_script_generator import VideoScript
+from src.script_generator import VideoScript
 from src.voicevox_tts import VoiceVoxTTS
 
 def create_simple_video():

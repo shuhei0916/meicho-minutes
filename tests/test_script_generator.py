@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from src.gemini_script_generator import GeminiScriptGenerator, VideoScript, GeminiScriptGeneratorError
+from src.script_generator import ScriptGenerator, VideoScript, ScriptGeneratorError
 from src.amazon_scraper import BookInfo, Review
 
 
@@ -30,20 +30,20 @@ def test_video_script_creation():
     assert "【締め】" in text_str
 
 
-@pytest.mark.skip(reason="Gemini API構造変更により一時的にスキップ")
-def test_gemini_script_generator_initialization():
-    """GeminiScriptGeneratorの初期化をテスト"""
+@pytest.mark.skip(reason="AI API構造変更により一時的にスキップ")
+def test_script_generator_initialization():
+    """ScriptGeneratorの初期化をテスト"""
     # API keyが無い場合のエラーテスト
-    with patch('src.gemini_script_generator.config', return_value=''):
-        with pytest.raises(GeminiScriptGeneratorError):
-            GeminiScriptGenerator()
+    with patch('src.script_generator.config', return_value=''):
+        with pytest.raises(ScriptGeneratorError):
+            ScriptGenerator()
     
     # API keyがある場合の正常初期化テスト
     with patch('google.genai.Client') as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
         
-        generator = GeminiScriptGenerator(api_key="test_api_key")
+        generator = ScriptGenerator(api_key="test_api_key")
         
         mock_client_class.assert_called_once_with(api_key="test_api_key")
         assert generator.client == mock_client
@@ -80,7 +80,7 @@ def test_script_generation_from_book_info():
     )
     
     # 実行
-    generator = GeminiScriptGenerator(api_key="test_key")
+    generator = ScriptGenerator(api_key="test_key")
     script = generator.generate_script_from_book_info(book_info)
     
     # 検証
@@ -115,8 +115,8 @@ def test_script_generation_with_empty_response(mock_client_class):
     book_info = BookInfo(title="テスト本")
     
     # 実行・検証
-    generator = GeminiScriptGenerator(api_key="test_key")
-    with pytest.raises(GeminiScriptGeneratorError):
+    generator = ScriptGenerator(api_key="test_key")
+    with pytest.raises(ScriptGeneratorError):
         generator.generate_script_from_book_info(book_info)
 
 
@@ -138,7 +138,7 @@ def test_script_generation_with_incomplete_response():
     )
     
     # 実行
-    generator = GeminiScriptGenerator(api_key="test_key")
+    generator = ScriptGenerator(api_key="test_key")
     script = generator.generate_script_from_book_info(book_info)
     
     # 検証（デフォルト値が設定されていることを確認）
@@ -153,7 +153,7 @@ def test_prompt_creation():
     with patch('google.genai.Client') as mock_client_class:
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
-        generator = GeminiScriptGenerator(api_key="test_key")
+        generator = ScriptGenerator(api_key="test_key")
         
         book_info = BookInfo(
             title="テスト本",

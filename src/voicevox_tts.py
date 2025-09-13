@@ -6,10 +6,10 @@ from pathlib import Path
 
 # VideoScriptクラスのインポート（モジュール実行時の互換性対応）
 try:
-    from src.gemini_script_generator import VideoScript
+    from src.script_generator import VideoScript
     from src.ass_subtitle_generator import ASSSubtitleGenerator
 except ImportError:
-    from gemini_script_generator import VideoScript
+    from script_generator import VideoScript
     from ass_subtitle_generator import ASSSubtitleGenerator
 
 
@@ -383,7 +383,7 @@ if __name__ == "__main__":
                 print(f"   台本タイトル: {script.title}", file=sys.stderr)
             else:
                 # 直接テキストから音声生成（簡易実装）
-                from src.gemini_script_generator import VideoScript
+                from src.script_generator import VideoScript
                 temp_script = VideoScript(title="直接テキスト", description=direct_text)
                 result_path = tts.generate_audio_from_script(temp_script, str(output_path))
                 print(f"✅ 音声ファイルを生成しました: {result_path}", file=sys.stderr)

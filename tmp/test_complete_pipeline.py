@@ -13,7 +13,7 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.append(str(project_root))
 
-from src.gemini_script_generator import GeminiScriptGenerator, VideoScript
+from src.script_generator import ScriptGenerator, VideoScript
 from src.voicevox_tts import VoiceVoxTTS
 from src.video_generator import VideoGenerator
 
@@ -48,7 +48,7 @@ def test_complete_pipeline():
     try:
         # Step 1: Gemini Script Generation
         print("\n📜 Step 1: Gemini Script Generation")
-        script_generator = GeminiScriptGenerator()
+        script_generator = ScriptGenerator()
         video_script = script_generator.generate_script(test_book_data)
         
         script_path = temp_dir / "pipeline_test_script.json"
